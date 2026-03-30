@@ -30,13 +30,13 @@ jobs:
     - name: Restore NuGet Packages
       run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
-    - name: Build Windows (No Self-Contained)
+    - name: Build Windows (CI Mode)
+      env:
+        CI: true
       run: |
         dotnet build src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
           -c Release `
           -f net10.0-windows10.0.19041.0 `
-          -p:SelfContained=false `
-          -p:WindowsAppSDKSelfContained=false `
           --no-restore
       
     - name: Upload Build Output
