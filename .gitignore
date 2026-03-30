@@ -1,0 +1,66 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.ilk
+*.pdb
+*.exe
+*.dll
+
+# MAUI
+*.nupkg
+*.snupkg
+
+# Visual Studio
+.vs/
+*.csproj.user
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio 2015/2017 cache/options directory
+.vs/
+
+# Publish
+publish/
+
+# NuGet
+*.nupkg
+# NuGet Symbol Packages
+*.snupkg
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Excel temp files
+~$*.xlsx
+~$*.xls

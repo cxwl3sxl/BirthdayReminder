@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj" />
+  </Folder>
+</Solution>

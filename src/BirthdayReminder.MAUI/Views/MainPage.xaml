@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<TabbedPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+            xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+            xmlns:vm="clr-namespace:BirthdayReminder.MAUI.ViewModels"
+            x:Class="BirthdayReminder.MAUI.Views.MainPage"
+            Title="生日提醒"
+            BarBackgroundColor="#E91E63"
+            BarTextColor="White">
+
+    <TabbedPage.Resources>
+        <ResourceDictionary>
+            <vm:StringNotEmptyConverter x:Key="StringNotEmpty"/>
+        </ResourceDictionary>
+    </TabbedPage.Resources>
+
+    <TabbedPage.BindingContext>
+        <vm:MainViewModel />
+    </TabbedPage.BindingContext>
+
+    <!-- Tab 1: 联系人列表 -->
+    <ContentPage Title="联系人" IconImageSource="contacts.png">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="10">
+
+            <!-- 统计卡片 -->
+            <Border Grid.Row="0" Margin="0,0,0,8" Padding="15"
+                    BackgroundColor="#FCE4EC" StrokeShape="RoundRectangle 12"
+                    StrokeThickness="0">
+                <Grid ColumnDefinitions="*,*,*">
+                    <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center">
+                        <Label Text="{Binding TotalCount}" FontSize="28" FontAttributes="Bold"
+                               TextColor="#E91E63" HorizontalOptions="Center"/>
+                        <Label Text="总人数" FontSize="11" TextColor="#9E9E9E" HorizontalOptions="Center"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center">
+                        <Label Text="{Binding TodayCount}" FontSize="28" FontAttributes="Bold"
+                               TextColor="#F44336" HorizontalOptions="Center"/>
+                        <Label Text="今日寿星" FontSize="11" TextColor="#9E9E9E" HorizontalOptions="Center"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center">
+                        <Label Text="{Binding UpcomingCount}" FontSize="28" FontAttributes="Bold"
+                               TextColor="#FF9800" HorizontalOptions="Center"/>
+                        <Label Text="本周生日" FontSize="11" TextColor="#9E9E9E" HorizontalOptions="Center"/>
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <!-- 搜索栏 + 新增按钮 -->
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,8" ColumnSpacing="8">
+                <Border Grid.Column="0" Padding="0" StrokeShape="RoundRectangle 10"
+                        StrokeThickness="1" Stroke="#E0E0E0" BackgroundColor="White">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="8,0">
+                        <Label Grid.Column="0" Text="🔍" FontSize="16" VerticalOptions="Center"/>
+                        <Entry Grid.Column="1" Text="{Binding SearchText}"
+                               Placeholder="搜索姓名、手机号..." FontSize="14"
+                               PlaceholderColor="#BDBDBD" BackgroundColor="Transparent"
+                               VerticalOptions="Center"/>
+                        <Button Grid.Column="2" Text="✕" FontSize="12"
+                                BackgroundColor="Transparent" TextColor="#9E9E9E"
+                                Padding="0" WidthRequest="30" HeightRequest="30"
+                                Command="{Binding ClearSearchCommand}"
+                                IsVisible="{Binding SearchText, Converter={StaticResource StringNotEmpty}}"/>
+                    </Grid>
+                </Border>
+                <Button Grid.Column="1" Text="＋" FontSize="20" FontAttributes="Bold"
+                        Command="{Binding AddCommand}"
+                        BackgroundColor="#E91E63" TextColor="White"
+                        CornerRadius="10" WidthRequest="50" HeightRequest="50"/>
+            </Grid>
+
+            <!-- 联系人列表 -->
+            <RefreshView Grid.Row="2" IsRefreshing="{Binding IsLoading}" Command="{Binding RefreshCommand}">
+                <CollectionView ItemsSource="{Binding FilteredEntries}" EmptyView="暂无联系人，点击 ＋ 新增或导入 Excel">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <SwipeView>
+                                <SwipeView.LeftItems>
+                                    <SwipeItems Mode="Execute">
+                                        <SwipeItem Text="编辑" BackgroundColor="#2196F3"
+                                                   Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditCommand}"
+                                                   CommandParameter="{Binding}" />
+                                    </SwipeItems>
+                                </SwipeView.LeftItems>
+                                <SwipeView.RightItems>
+                                    <SwipeItems Mode="Execute">
+                                        <SwipeItem Text="删除" BackgroundColor="#F44336"
+                                                   Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteCommand}"
+                                                   CommandParameter="{Binding}" />
+                                    </SwipeItems>
+                                </SwipeView.RightItems>
+
+                                <Border Margin="0,3" Padding="14" StrokeShape="RoundRectangle 10"
+                                        StrokeThickness="0" BackgroundColor="White">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                            <Label Text="{Binding Name}" FontSize="17" FontAttributes="Bold" TextColor="#212121"/>
+                                            <Label Text="{Binding PhoneNumber}" FontSize="13" TextColor="#757575"
+                                                   IsVisible="{Binding PhoneNumber, Converter={StaticResource StringNotEmpty}}"/>
+                                            <Label Text="{Binding Remarks}" FontSize="12" TextColor="#9E9E9E"
+                                                   IsVisible="{Binding Remarks, Converter={StaticResource StringNotEmpty}}"
+                                                   MaxLines="1" LineBreakMode="TailTruncation"/>
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="End" VerticalOptions="Center" Spacing="2">
+                                            <Label Text="{Binding FormattedBirthday}" FontSize="20"
+                                                   TextColor="#E91E63" FontAttributes="Bold" HorizontalOptions="End"/>
+                                            <Label Text="{Binding CountdownText}" FontSize="11"
+                                                   TextColor="{Binding CountdownColor}"
+                                                   HorizontalOptions="End"/>
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Border>
+                            </SwipeView>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </RefreshView>
+
+            <!-- 状态栏 -->
+            <Label Grid.Row="3" Text="{Binding StatusMessage}" FontSize="12"
+                   TextColor="#9E9E9E" HorizontalOptions="Center" Margin="0,5"/>
+        </Grid>
+    </ContentPage>
+
+    <!-- Tab 2: 本周生日 -->
+    <ContentPage Title="本周生日" IconImageSource="birthday.png">
+        <Grid RowDefinitions="*,Auto" Margin="10">
+            <CollectionView Grid.Row="0" ItemsSource="{Binding UpcomingBirthdays}" EmptyView="本周没有生日 🎉">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,4" Padding="15" StrokeShape="RoundRectangle 10"
+                                StrokeThickness="0" BackgroundColor="#FFF8E1">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                    <Label Text="{Binding Name}" FontSize="18" FontAttributes="Bold" TextColor="#212121"/>
+                                    <Label Text="{Binding PhoneNumber}" FontSize="13" TextColor="#757575"
+                                           IsVisible="{Binding PhoneNumber, Converter={StaticResource StringNotEmpty}}"/>
+                                    <Label Text="{Binding Remarks}" FontSize="12" TextColor="#9E9E9E"
+                                           IsVisible="{Binding Remarks, Converter={StaticResource StringNotEmpty}}"/>
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" HorizontalOptions="End" VerticalOptions="Center" Spacing="4">
+                                    <Label Text="{Binding FormattedBirthday}" FontSize="22"
+                                           TextColor="#FF9800" FontAttributes="Bold" HorizontalOptions="End"/>
+                                    <Label Text="{Binding CountdownText}" FontSize="13"
+                                           TextColor="{Binding CountdownColor}"
+                                           HorizontalOptions="End" FontAttributes="Bold"/>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+            <Label Grid.Row="1" Text="{Binding StatusMessage}" FontSize="12"
+                   TextColor="#9E9E9E" HorizontalOptions="Center" Margin="0,5"/>
+        </Grid>
+    </ContentPage>
+
+    <!-- Tab 3: 设置 -->
+    <ContentPage Title="设置" IconImageSource="settings.png">
+        <ScrollView>
+            <VerticalStackLayout Margin="20" Spacing="12">
+
+                <Label Text="联系人管理" FontSize="16" FontAttributes="Bold"
+                       TextColor="#616161" Margin="0,0,0,5"/>
+
+                <Button Text="➕  新增联系人"
+                        Command="{Binding AddCommand}"
+                        BackgroundColor="#E91E63" TextColor="White"
+                        CornerRadius="12" HeightRequest="52" FontSize="15"/>
+
+                <Button Text="📁  导入 Excel 文件"
+                        Command="{Binding ImportCommand}"
+                        BackgroundColor="#9C27B0" TextColor="White"
+                        CornerRadius="12" HeightRequest="52" FontSize="15"/>
+
+                <Button Text="📤  导出 Excel 文件"
+                        Command="{Binding ExportCommand}"
+                        BackgroundColor="#3F51B5" TextColor="White"
+                        CornerRadius="12" HeightRequest="52" FontSize="15"/>
+
+                <BoxView HeightRequest="1" BackgroundColor="#EEEEEE" Margin="0,5"/>
+
+                <Label Text="通知操作" FontSize="16" FontAttributes="Bold"
+                       TextColor="#616161" Margin="0,0,0,5"/>
+
+                <Button Text="🔄  刷新数据"
+                        Command="{Binding RefreshCommand}"
+                        BackgroundColor="#2196F3" TextColor="White"
+                        CornerRadius="12" HeightRequest="52" FontSize="15"/>
+
+                <Button Text="📅  立即检查今日生日"
+                        Command="{Binding CheckTodayCommand}"
+                        BackgroundColor="#4CAF50" TextColor="White"
+                        CornerRadius="12" HeightRequest="52" FontSize="15"/>
+
+                <Button Text="🔔  发送测试通知"
+                        Command="{Binding SendTestNotificationCommand}"
+                        BackgroundColor="#FF9800" TextColor="White"
+                        CornerRadius="12" HeightRequest="52" FontSize="15"/>
+
+                <BoxView HeightRequest="1" BackgroundColor="#EEEEEE" Margin="0,5"/>
+
+                <Label Text="使用说明" FontSize="16" FontAttributes="Bold" TextColor="#616161"/>
+
+                <Border BackgroundColor="#F5F5F5" StrokeShape="RoundRectangle 10"
+                        StrokeThickness="0" Padding="15">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="• 支持 .xlsx 格式 Excel 文件导入/导出" FontSize="13" TextColor="#616161"/>
+                        <Label Text="• Excel 列顺序：姓名 | 手机号 | 生日 | 备注" FontSize="13" TextColor="#616161"/>
+                        <Label Text="• 生日格式：2000/1/15 或 1/15 或 1-15" FontSize="13" TextColor="#616161"/>
+                        <Label Text="• 右滑联系人 → 编辑；左滑 → 删除" FontSize="13" TextColor="#616161"/>
+                        <Label Text="• 点击 ＋ 手动新增联系人" FontSize="13" TextColor="#616161"/>
+                        <Label Text="• 应用启动和每小时自动检查今日生日" FontSize="13" TextColor="#616161"/>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 状态 -->
+                <Label Text="{Binding StatusMessage}" FontSize="12"
+                       TextColor="#9E9E9E" HorizontalOptions="Center" Margin="0,10,0,0"/>
+            </VerticalStackLayout>
+        </ScrollView>
+    </ContentPage>
+
+</TabbedPage>
