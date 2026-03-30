@@ -66,8 +66,11 @@ jobs:
         dotnet workload install maui-android --skip-sign-check
         dotnet workload install maui-ios --skip-sign-check
       
-    - name: Restore
+    - name: Restore Workloads
       run: dotnet workload restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
+      
+    - name: Restore NuGet Packages
+      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
     - name: Build Check (Android only - Windows requires VS)
       run: dotnet build src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj -c Release -f net10.0-android --no-restore

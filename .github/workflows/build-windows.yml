@@ -27,8 +27,11 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
       
-    - name: Restore Dependencies
+    - name: Restore Workloads
       run: dotnet workload restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
+      
+    - name: Restore NuGet Packages
+      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
     - name: Build Windows with MSBuild
       run: |
