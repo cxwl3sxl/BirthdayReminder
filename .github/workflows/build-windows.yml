@@ -8,7 +8,7 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-    name: Build Windows MSIX
+    name: Build Windows
     
     steps:
     - name: Checkout
@@ -28,30 +28,18 @@ jobs:
       run: dotnet workload restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
     - name: Restore NuGet Packages
-      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj -r win-x64
+      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
-    - name: Build Windows
+    - name: Build Windows (No Self-Contained)
       run: |
         dotnet build src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
           -c Release `
           -f net10.0-windows10.0.19041.0 `
-          -r win-x64 `
           --no-restore
       
-    - name: Publish Windows
-      run: |
-        dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
-          -c Release `
-          -f net10.0-windows10.0.19041.0 `
-          -r win-x64 `
-          -p:SelfContained=true `
-          -p:WindowsAppSDKSelfContained=true `
-          -p:PublishSingleFile=false `
-          -o ./publish/windows
-      
-    - name: Upload Windows Artifact
+    - name: Upload Build Output
       uses: actions/upload-artifact@v4
       with:
-        name: BirthdayReminder-Windows
-        path: ./publish/windows
+        name: BirthdayReminder-Windows-Build
+        path: src/BirthdayReminder.MAUI/bin/Release/net10.0-windows10.0.19041.0
         retention-days: 30
