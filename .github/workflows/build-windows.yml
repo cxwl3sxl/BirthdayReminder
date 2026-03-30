@@ -28,6 +28,8 @@ jobs:
       run: dotnet workload restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
     - name: Restore NuGet Packages
+      env:
+        CI: true
       run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
     - name: Build Windows (CI Mode)
