@@ -1,0 +1,59 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    name: Build Windows (VS MSBuild)
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        
+    - name: Install MAUI Workload
+      run: dotnet workload install maui --skip-sign-check
+      
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Restore Dependencies
+      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
+      
+    - name: Build Windows with MSBuild
+      run: |
+        msbuild src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
+          /p:Configuration=Release `
+          /p:TargetFramework=net10.0-windows10.0.19041.0 `
+          /p:RuntimeIdentifier=win-x64 `
+          /p:Platform=x64 `
+          /p:WindowsAppSDKSelfContained=false `
+          /p:WindowsPackageType=None `
+          /restore
+      
+    - name: Find Build Output
+      shell: pwsh
+      run: |
+        $outputPath = "src/BirthdayReminder.MAUI/bin/Release/net10.0-windows10.0.19041.0/win-x64"
+        if (Test-Path $outputPath) {
+          Get-ChildItem $outputPath -File | Select-Object -First 20
+          Copy-Item -Path "$outputPath/*" -Destination "./publish/windows" -Recurse -Force -ErrorAction SilentlyContinue
+        } else {
+          Write-Host "Output path not found, listing bin directory..."
+          Get-ChildItem "src/BirthdayReminder.MAUI/bin" -Recurse -Directory | Select-Object -First 10
+        }
+          
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BirthdayReminder-Windows
+        path: ./publish/windows
+        retention-days: 30

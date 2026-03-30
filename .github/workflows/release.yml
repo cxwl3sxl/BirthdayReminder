@@ -12,55 +12,6 @@ on:
         default: 'v1.0.0'
 
 jobs:
-  release-windows:
-    runs-on: windows-latest
-    name: Release Windows
-    
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
-        
-    - name: Install MAUI Workload
-      run: dotnet workload install maui --skip-sign-check
-      
-    - name: Restore Dependencies
-      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
-      
-    - name: Publish Windows (Self-Contained)
-      run: |
-        $version = "${{ github.ref_name }}"
-        if ($version -eq "" -or $version -eq "refs/heads/master") {
-          $version = "${{ github.event.inputs.version }}"
-        }
-        Write-Host "Building version: $version"
-        
-        dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
-          -c Release `
-          -f net10.0-windows10.0.19041.0 `
-          -r win-x64 `
-          --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:IncludeNativeLibrariesForSelfExtract=true `
-          -o ./publish/BirthdayReminder-Windows
-          
-    - name: Create ZIP Archive
-      run: |
-        Compress-Archive -Path ./publish/BirthdayReminder-Windows/* `
-          -DestinationPath ./BirthdayReminder-Windows.zip `
-          -Force
-          
-    - name: Upload Release Asset
-      uses: actions/upload-artifact@v4
-      with:
-        name: BirthdayReminder-Windows-Release
-        path: ./BirthdayReminder-Windows.zip
-        retention-days: 90
-
   release-android:
     runs-on: windows-latest
     name: Release Android
@@ -87,15 +38,10 @@ jobs:
       run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
     - name: Publish Android APK
-      run: |
-        dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
-          -c Release `
-          -f net10.0-android `
-          -p:AndroidPackageFormat=apk `
-          --self-contained `
-          -o ./publish
-          
+      run: dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj -c Release -f net10.0-android -p:AndroidPackageFormat=apk --self-contained -o ./publish
+      
     - name: Rename APK
+      shell: pwsh
       run: |
         $apk = Get-ChildItem ./publish/*.apk | Select-Object -First 1
         if ($apk) {
