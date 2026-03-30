@@ -38,7 +38,7 @@ jobs:
         msbuild src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
           -p:Configuration=Release `
           -p:TargetFramework=net10.0-windows10.0.19041.0 `
-          -p:RuntimeIdentifier=win10-x64 `
+          -p:RuntimeIdentifier=win-x64 `
           -p:Platform=x64 `
           -p:PublishReadyToRun=false `
           -p:SelfContained=false `
@@ -50,7 +50,7 @@ jobs:
         dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
           -c Release `
           -f net10.0-windows10.0.19041.0 `
-          -p:RuntimeIdentifierOverride=win10-x64 `
+          -p:RuntimeIdentifierOverride=win-x64 `
           -p:SelfContained=true `
           -p:WindowsAppSDKSelfContained=true `
           -p:PublishSingleFile=false `
