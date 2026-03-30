@@ -35,6 +35,8 @@ jobs:
         dotnet build src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
           -c Release `
           -f net10.0-windows10.0.19041.0 `
+          -p:SelfContained=false `
+          -p:WindowsAppSDKSelfContained=false `
           --no-restore
       
     - name: Upload Build Output
