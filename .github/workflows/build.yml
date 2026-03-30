@@ -1,0 +1,123 @@
+name: Build BirthdayReminder
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    name: Build Windows
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        
+    - name: Install MAUI Workload
+      run: dotnet workload install maui --skip-sign-check
+      
+    - name: Restore Dependencies
+      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
+      
+    - name: Build Windows
+      run: |
+        dotnet build src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj \
+          -c Release \
+          -f net10.0-windows10.0.19041.0 \
+          --no-restore
+          
+    - name: Publish Windows
+      run: |
+        dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj \
+          -c Release \
+          -f net10.0-windows10.0.19041.0 \
+          --self-contained false \
+          -o ./publish/windows
+          
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BirthdayReminder-Windows
+        path: ./publish/windows
+        retention-days: 30
+
+  build-android:
+    runs-on: windows-latest
+    name: Build Android
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        
+    - name: Install MAUI Workload
+      run: dotnet workload install maui-android --skip-sign-check
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'microsoft'
+        java-version: '17'
+        
+    - name: Restore Dependencies
+      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
+      
+    - name: Build Android
+      run: |
+        dotnet build src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj \
+          -c Release \
+          -f net10.0-android \
+          --no-restore
+          
+    - name: Publish Android
+      run: |
+        dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj \
+          -c Release \
+          -f net10.0-android \
+          -p:AndroidPackageFormat=apk \
+          --self-contained \
+          -o ./publish/android
+          
+    - name: Upload Android Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BirthdayReminder-Android
+        path: ./publish/android/*.apk
+        retention-days: 30
+
+  code-quality:
+    runs-on: windows-latest
+    name: Code Quality Check
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        
+    - name: Install MAUI Workload
+      run: dotnet workload install maui --skip-sign-check
+      
+    - name: Restore
+      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
+      
+    - name: Check Code Format
+      run: |
+        dotnet format src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj \
+          --verify-no-changes \
+          --verbosity diagnostic || true
