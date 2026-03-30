@@ -8,7 +8,7 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-    name: Build Windows (Skipped - Requires VS)
+    name: Build Windows MSIX
     
     steps:
     - name: Checkout
@@ -22,7 +22,7 @@ jobs:
     - name: Install MAUI Workloads
       run: |
         dotnet workload install maui --skip-sign-check
-        dotnet workload install maui-ios --skip-sign-check
+        dotnet workload install maui-windows --skip-sign-check
       
     - name: Restore Workloads
       run: dotnet workload restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
@@ -30,18 +30,35 @@ jobs:
     - name: Restore NuGet Packages
       run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
-    - name: Build Windows (Skipped)
-      run: |
-        echo "⚠️ Windows build skipped in CI"
-        echo "MAUI Windows projects require Visual Studio with Windows App SDK."
-        echo "Please build locally using Visual Studio 2022."
-        echo ""
-        echo "Android build is available in the 'Build BirthdayReminder' workflow."
-        exit 0
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
       
-    - name: Upload Placeholder
+    - name: Build Windows
+      run: |
+        msbuild src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
+          -p:Configuration=Release `
+          -p:TargetFramework=net10.0-windows10.0.19041.0 `
+          -p:RuntimeIdentifier=win10-x64 `
+          -p:Platform=x64 `
+          -p:PublishReadyToRun=false `
+          -p:SelfContained=false `
+          -p:WindowsAppSDKSelfContained=false `
+          -restore
+      
+    - name: Publish Windows
+      run: |
+        dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj `
+          -c Release `
+          -f net10.0-windows10.0.19041.0 `
+          -p:RuntimeIdentifierOverride=win10-x64 `
+          -p:SelfContained=true `
+          -p:WindowsAppSDKSelfContained=true `
+          -p:PublishSingleFile=false `
+          -o ./publish/windows
+      
+    - name: Upload Windows Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: BirthdayReminder-Windows-Placeholder
-        path: README.md
-        retention-days: 1
+        name: BirthdayReminder-Windows
+        path: ./publish/windows
+        retention-days: 30
