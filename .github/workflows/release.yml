@@ -25,8 +25,10 @@ jobs:
       with:
         dotnet-version: '10.0.x'
         
-    - name: Install MAUI Workload
-      run: dotnet workload install maui-android --skip-sign-check
+    - name: Install MAUI Workloads
+      run: |
+        dotnet workload install maui-android --skip-sign-check
+        dotnet workload install maui-ios --skip-sign-check
       
     - name: Setup Java
       uses: actions/setup-java@v4
@@ -35,7 +37,7 @@ jobs:
         java-version: '17'
         
     - name: Restore Dependencies
-      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
+      run: dotnet workload restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
     - name: Publish Android APK
       run: dotnet publish src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj -c Release -f net10.0-android -p:AndroidPackageFormat=apk --self-contained -o ./publish

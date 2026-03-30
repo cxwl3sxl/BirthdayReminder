@@ -19,14 +19,16 @@ jobs:
       with:
         dotnet-version: '10.0.x'
         
-    - name: Install MAUI Workload
-      run: dotnet workload install maui --skip-sign-check
+    - name: Install MAUI Workloads
+      run: |
+        dotnet workload install maui --skip-sign-check
+        dotnet workload install maui-ios --skip-sign-check
       
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
       
     - name: Restore Dependencies
-      run: dotnet restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
+      run: dotnet workload restore src/BirthdayReminder.MAUI/BirthdayReminder.MAUI.csproj
       
     - name: Build Windows with MSBuild
       run: |
