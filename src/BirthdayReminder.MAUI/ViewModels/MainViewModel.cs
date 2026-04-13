@@ -353,7 +353,7 @@ public class MainViewModel : INotifyPropertyChanged
 
         try
         {
-            var confirm = await page.DisplayAlertAsync(
+            var confirm = await page.DisplayAlert(
                 "确认删除", $"确定要删除 {entry.Name} 吗？", "删除", "取消");
 
             if (!confirm) return;
@@ -399,7 +399,7 @@ public class MainViewModel : INotifyPropertyChanged
             var page = GetCurrentPage();
             if (page != null)
             {
-                await page.DisplayAlertAsync(
+                await page.DisplayAlert(
                     "导出成功",
                     $"文件已保存至：\n{filePath}",
                     "确认");

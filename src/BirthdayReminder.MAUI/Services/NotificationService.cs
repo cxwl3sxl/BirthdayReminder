@@ -220,7 +220,7 @@ public class NotificationService
         {
             var page = GetCurrentPage();
             if (page != null)
-                await page.DisplayAlertAsync(title, message, "确认");
+                await page.DisplayAlert(title, message, "确认");
         });
     }
 

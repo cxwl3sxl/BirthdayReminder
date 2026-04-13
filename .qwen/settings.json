@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell *)",
+      "Bash(\"c:\\program files\\microsoft visual studio\\2022\\enterprise\\msbuild\\current\\bin\\msbuild.exe\" *)",
+      "Bash(cmd *)",
+      "Bash(dotnet *)",
+      "Bash(\"c:\\program files\\dotnet\\dotnet.exe\" *)",
+      "Bash(dir *)",
+      "Bash(mkdir *)",
+      "Bash(rmdir *)",
+      "Bash(del *)"
+    ]
+  },
+  "$version": 3
+}
