@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using BirthdayReminder.MAUI.Models;
 using BirthdayReminder.MAUI.Services;
+using BirthdayReminder.MAUI.Platforms.Windows;
 using Microsoft.Maui.Controls;
 
 namespace BirthdayReminder.MAUI.ViewModels;
@@ -183,16 +185,26 @@ public class MainViewModel : INotifyPropertyChanged
             IsLoading = true;
             StatusMessage = "请选择 Excel 文件...";
 
+#if WINDOWS
+            // 使用 Windows 原生文件选择器
+            var filePath = await WindowsFilePicker.PickFileAsync("选择生日 Excel 文件", ".xlsx");
+            if (string.IsNullOrEmpty(filePath))
+            {
+                StatusMessage = "取消选择";
+                return;
+            }
+            StatusMessage = $"正在导入: {Path.GetFileName(filePath)}";
+            var entries = await _excelService.ImportFromExcelAsync(filePath);
+#else
+            // 使用 MAUI 跨平台文件选择器
             var result = await FilePicker.PickAsync(new PickOptions
             {
                 PickerTitle = "选择生日 Excel 文件",
                 FileTypes = new FilePickerFileType(
                     new Dictionary<DevicePlatform, IEnumerable<string>>
                     {
-                        { DevicePlatform.WinUI, new[] { ".xlsx" } },
                         { DevicePlatform.Android, new[] { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" } },
                         { DevicePlatform.iOS, new[] { "com.microsoft.excel.xlsx" } },
-                        { DevicePlatform.MacCatalyst, new[] { "com.microsoft.excel.xlsx" } },
                     })
             });
 
@@ -204,6 +216,7 @@ public class MainViewModel : INotifyPropertyChanged
 
             StatusMessage = $"正在导入: {result.FileName}";
             var entries = await _excelService.ImportFromExcelAsync(result.FullPath);
+#endif
 
             if (entries.Count == 0)
             {
