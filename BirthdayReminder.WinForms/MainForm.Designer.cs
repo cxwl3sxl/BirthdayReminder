@@ -23,16 +23,12 @@ namespace BirthdayReminder
             this.btnDelete = new System.Windows.Forms.Button();
             this.btnRefresh = new System.Windows.Forms.Button();
             this.btnTodayBirthdays = new System.Windows.Forms.Button();
-            this.chkAutoStart = new System.Windows.Forms.CheckBox();
             this.btnSetRemindTime = new System.Windows.Forms.Button();
-            this.menuStrip1 = new System.Windows.Forms.MenuStrip();
-            this.文件ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.导入ExcelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.导出ExcelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.退出ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.label1 = new System.Windows.Forms.Label();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
+            this.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -102,68 +98,6 @@ namespace BirthdayReminder
             this.btnTodayBirthdays.UseVisualStyleBackColor = false;
             this.btnTodayBirthdays.Click += new System.EventHandler(this.btnTodayBirthdays_Click);
             // 
-            // chkAutoStart
-            // 
-            this.chkAutoStart.AutoSize = true;
-            this.chkAutoStart.Location = new System.Drawing.Point(12, 80);
-            this.chkAutoStart.Name = "chkAutoStart";
-            this.chkAutoStart.Size = new System.Drawing.Size(99, 19);
-            this.chkAutoStart.TabIndex = 6;
-            this.chkAutoStart.Text = "开机自动启动";
-            this.chkAutoStart.UseVisualStyleBackColor = true;
-            this.chkAutoStart.CheckedChanged += new System.EventHandler(this.chkAutoStart_CheckedChanged);
-            // 
-            // btnSetRemindTime
-            // 
-            this.btnSetRemindTime.Location = new System.Drawing.Point(130, 75);
-            this.btnSetRemindTime.Name = "btnSetRemindTime";
-            this.btnSetRemindTime.Size = new System.Drawing.Size(100, 25);
-            this.btnSetRemindTime.TabIndex = 7;
-            this.btnSetRemindTime.Text = "设置提醒时间";
-            this.btnSetRemindTime.UseVisualStyleBackColor = true;
-            this.btnSetRemindTime.Click += new System.EventHandler(this.btnSetRemindTime_Click);
-            // 
-            // menuStrip1
-            // 
-            this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.文件ToolStripMenuItem});
-            this.menuStrip1.Location = new System.Drawing.Point(0, 0);
-            this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(800, 24);
-            this.menuStrip1.TabIndex = 8;
-            this.menuStrip1.Text = "menuStrip1";
-            // 
-            // 文件ToolStripMenuItem
-            // 
-            this.文件ToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.导入ExcelToolStripMenuItem,
-            this.导出ExcelToolStripMenuItem,
-            this.退出ToolStripMenuItem});
-            this.文件ToolStripMenuItem.Name = "文件ToolStripMenuItem";
-            this.文件ToolStripMenuItem.Size = new System.Drawing.Size(43, 20);
-            this.文件ToolStripMenuItem.Text = "文件";
-            // 
-            // 导入ExcelToolStripMenuItem
-            // 
-            this.导入ExcelToolStripMenuItem.Name = "导入ExcelToolStripMenuItem";
-            this.导入ExcelToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
-            this.导入ExcelToolStripMenuItem.Text = "导入 Excel";
-            this.导入ExcelToolStripMenuItem.Click += new System.EventHandler(this.导入ExcelToolStripMenuItem_Click);
-            // 
-            // 导出ExcelToolStripMenuItem
-            // 
-            this.导出ExcelToolStripMenuItem.Name = "导出ExcelToolStripMenuItem";
-            this.导出ExcelToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
-            this.导出ExcelToolStripMenuItem.Text = "导出 Excel";
-            this.导出ExcelToolStripMenuItem.Click += new System.EventHandler(this.导出ExcelToolStripMenuItem_Click);
-            // 
-            // 退出ToolStripMenuItem
-            // 
-            this.退出ToolStripMenuItem.Name = "退出ToolStripMenuItem";
-            this.退出ToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
-            this.退出ToolStripMenuItem.Text = "退出";
-            this.退出ToolStripMenuItem.Click += (s, e) => Application.Exit();
-            // 
             // label1
             // 
             this.label1.AutoSize = true;
@@ -190,24 +124,36 @@ namespace BirthdayReminder
             this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
             this.toolStripStatusLabel1.Size = new System.Drawing.Size(56, 17);
             this.toolStripStatusLabel1.Text = "就绪";
+            // btnSetRemindTime
+            // 
+            this.btnSetRemindTime.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(66)))), ((int)(((byte)(133)))), ((int)(((byte)(244)))));
+            this.btnSetRemindTime.FlatAppearance.BorderSize = 0;
+            this.btnSetRemindTime.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSetRemindTime.Font = new System.Drawing.Font("Microsoft YaHei", 9F);
+            this.btnSetRemindTime.ForeColor = System.Drawing.Color.White;
+            this.btnSetRemindTime.Location = new System.Drawing.Point(470, 35);
+            this.btnSetRemindTime.Name = "btnSetRemindTime";
+            this.btnSetRemindTime.Size = new System.Drawing.Size(80, 30);
+            this.btnSetRemindTime.TabIndex = 6;
+            this.btnSetRemindTime.Text = "⚙️ 设置";
+            this.btnSetRemindTime.UseVisualStyleBackColor = false;
+            this.btnSetRemindTime.Click += new System.EventHandler(this.btnSetRemindTime_Click);
             // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.ClientSize = new System.Drawing.Size(800, 500);
             this.Controls.Add(this.statusStrip1);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.btnSetRemindTime);
-            this.Controls.Add(this.chkAutoStart);
             this.Controls.Add(this.btnTodayBirthdays);
             this.Controls.Add(this.btnRefresh);
             this.Controls.Add(this.btnDelete);
             this.Controls.Add(this.btnEdit);
             this.Controls.Add(this.btnAdd);
             this.Controls.Add(this.dataGridView1);
-            this.Controls.Add(this.menuStrip1);
-            this.MainMenuStrip = this.menuStrip1;
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "生日提醒";
@@ -226,13 +172,7 @@ namespace BirthdayReminder
         private System.Windows.Forms.Button btnDelete;
         private System.Windows.Forms.Button btnRefresh;
         private System.Windows.Forms.Button btnTodayBirthdays;
-        private System.Windows.Forms.CheckBox chkAutoStart;
         private System.Windows.Forms.Button btnSetRemindTime;
-        private System.Windows.Forms.MenuStrip menuStrip1;
-        private System.Windows.Forms.ToolStripMenuItem 文件ToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem 导入ExcelToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem 导出ExcelToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem 退出ToolStripMenuItem;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;

@@ -22,12 +22,87 @@ public partial class MainForm : Form
         // 初始化通知
         _notifyService.Initialize(this);
         _notifyService.OnShowBirthdayList += ShowTodayBirthdays;
+        _notifyService.OnShowMainWindow += ShowMainWindow;
+        _notifyService.OnShowSettings += ShowSettingsForm;
+        _notifyService.OnImportExcel += ImportExcel;
+        _notifyService.OnExportExcel += ExportExcel;
+        _notifyService.OnExit += ExitApp;
         
         // 加载数据
         LoadContacts();
+    }
+    
+    private void ShowMainWindow()
+    {
+        this.Show();
+        this.WindowState = FormWindowState.Normal;
+        this.Activate();
+    }
+    
+    private void ShowSettingsForm()
+    {
+        var form = new SettingsForm(_autoStartService, _notifyService);
+        form.ShowDialog();
+    }
+    
+    private void ImportExcel()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Excel 文件|*.xlsx",
+            Title = "选择 Excel 文件"
+        };
         
-        // 更新自动启动状态
-        UpdateAutoStartCheckBox();
+        if (dialog.ShowDialog() == DialogResult.OK)
+        {
+            try
+            {
+                var entries = _excelService.ImportFromExcel(dialog.FileName);
+                if (entries.Count == 0)
+                {
+                    MessageBox.Show("未找到有效数据", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                
+                var count = _databaseService.ImportContacts(entries);
+                LoadContacts();
+                MessageBox.Show($"成功导入 {count} 条记录", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导入失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+    
+    private void ExportExcel()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Excel 文件|*.xlsx",
+            Title = "导出 Excel 文件",
+            FileName = $"联系人_{DateTime.Now:yyyyMMdd}.xlsx"
+        };
+        
+        if (dialog.ShowDialog() == DialogResult.OK)
+        {
+            try
+            {
+                var contacts = _databaseService.GetAllContacts();
+                _excelService.ExportToExcel(dialog.FileName, contacts);
+                MessageBox.Show("导出成功", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+    
+    private void ExitApp()
+    {
+        _notifyService.Dispose();
+        Application.Exit();
     }
     
     private void MainForm_Load(object sender, EventArgs e)
@@ -61,65 +136,7 @@ public partial class MainForm : Form
         }
     }
     
-    #region 菜单操作
-    
-    private void 导入ExcelToolStripMenuItem_Click(object sender, EventArgs e)
-    {
-        var dialog = new OpenFileDialog
-        {
-            Filter = "Excel 文件|*.xlsx",
-            Title = "选择 Excel 文件"
-        };
-        
-        if (dialog.ShowDialog() == DialogResult.OK)
-        {
-            try
-            {
-                var entries = _excelService.ImportFromExcel(dialog.FileName);
-                if (entries.Count == 0)
-                {
-                    MessageBox.Show("未找到有效数据", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-                
-                var count = _databaseService.ImportContacts(entries);
-                LoadContacts();
-                MessageBox.Show($"成功导入 {count} 条记录", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"导入失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-    }
-    
-    private void 导出ExcelToolStripMenuItem_Click(object sender, EventArgs e)
-    {
-        var dialog = new SaveFileDialog
-        {
-            Filter = "Excel 文件|*.xlsx",
-            Title = "导出 Excel 文件",
-            FileName = $"联系人_{DateTime.Now:yyyyMMdd}.xlsx"
-        };
-        
-        if (dialog.ShowDialog() == DialogResult.OK)
-        {
-            try
-            {
-                var contacts = _databaseService.GetAllContacts();
-                _excelService.ExportToExcel(dialog.FileName, contacts);
-                MessageBox.Show("导出成功", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-    }
-    
-    #endregion
-    
-    #region 联系人操作
+#region 联系人操作
     
     private void btnAdd_Click(object sender, EventArgs e)
     {
@@ -193,31 +210,9 @@ public partial class MainForm : Form
     
     #region 设置
     
-    private void chkAutoStart_CheckedChanged(object sender, EventArgs e)
-    {
-        if (chkAutoStart.Checked)
-        {
-            _autoStartService.EnableAutoStart();
-        }
-        else
-        {
-            _autoStartService.DisableAutoStart();
-        }
-    }
-    
-    private void UpdateAutoStartCheckBox()
-    {
-        chkAutoStart.Checked = _autoStartService.IsAutoStartEnabled();
-    }
-    
     private void btnSetRemindTime_Click(object sender, EventArgs e)
     {
-        var form = new RemindTimeForm(_notifyService.GetRemindTime());
-        if (form.ShowDialog() == DialogResult.OK)
-        {
-            _notifyService.SetRemindTime(form.RemindTime);
-            MessageBox.Show("提醒时间已设置", "成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
+        ShowSettingsForm();
     }
     
     #endregion

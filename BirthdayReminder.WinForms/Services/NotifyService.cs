@@ -15,7 +15,13 @@ public class NotifyService
     private Form? _mainForm;
     private TimeSpan _remindTime = new TimeSpan(9, 0, 0); // 默认 9:00
     
-    public event Action? OnShowBirthdayList; // 点击通知时显示生日清单
+    // 菜单事件
+    public event Action? OnShowBirthdayList;
+    public event Action? OnShowMainWindow;
+    public event Action? OnShowSettings;
+    public event Action? OnImportExcel;
+    public event Action? OnExportExcel;
+    public event Action? OnExit;
     
     public NotifyService(DatabaseService databaseService)
     {
@@ -37,7 +43,49 @@ public class NotifyService
             Text = "生日提醒"
         };
         
-        _notifyIcon.DoubleClick += (s, e) => OnShowBirthdayList?.Invoke();
+        // 创建右键菜单
+        var contextMenu = new ContextMenuStrip();
+        contextMenu.Font = new Font("Microsoft YaHei", 10F);
+        contextMenu.RenderMode = ToolStripRenderMode.System;
+        
+        // 今日生日
+        var menuToday = new ToolStripMenuItem("🎂 今日生日");
+        menuToday.Click += (s, e) => OnShowBirthdayList?.Invoke();
+        contextMenu.Items.Add(menuToday);
+        
+        contextMenu.Items.Add(new ToolStripSeparator());
+        
+        // 导入Excel
+        var menuImport = new ToolStripMenuItem("📥 导入Excel");
+        menuImport.Click += (s, e) => OnImportExcel?.Invoke();
+        contextMenu.Items.Add(menuImport);
+        
+        // 导出Excel
+        var menuExport = new ToolStripMenuItem("📤 导出Excel");
+        menuExport.Click += (s, e) => OnExportExcel?.Invoke();
+        contextMenu.Items.Add(menuExport);
+        
+        contextMenu.Items.Add(new ToolStripSeparator());
+        
+        // 设置
+        var menuSettings = new ToolStripMenuItem("⚙️ 设置");
+        menuSettings.Click += (s, e) => OnShowSettings?.Invoke();
+        contextMenu.Items.Add(menuSettings);
+        
+        contextMenu.Items.Add(new ToolStripSeparator());
+        
+        // 显示主窗口
+        var menuShow = new ToolStripMenuItem("📋 打开主窗口");
+        menuShow.Click += (s, e) => OnShowMainWindow?.Invoke();
+        contextMenu.Items.Add(menuShow);
+        
+        // 退出
+        var menuExit = new ToolStripMenuItem("❌ 退出");
+        menuExit.Click += (s, e) => OnExit?.Invoke();
+        contextMenu.Items.Add(menuExit);
+        
+        _notifyIcon.ContextMenuStrip = contextMenu;
+        _notifyIcon.DoubleClick += (s, e) => OnShowMainWindow?.Invoke();
         
         // 启动定时检查
         StartTimers();
