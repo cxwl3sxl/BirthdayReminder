@@ -1,3 +1,6 @@
+using System.Drawing;
+using System.Windows.Forms;
+
 namespace BirthdayReminder
 {
     partial class MainForm
@@ -13,166 +16,140 @@ namespace BirthdayReminder
             base.Dispose(disposing);
         }
         
-        #region Windows Form Designer generated code
-        
         private void InitializeComponent()
         {
-            this.dataGridView1 = new System.Windows.Forms.DataGridView();
-            this.btnAdd = new System.Windows.Forms.Button();
-            this.btnEdit = new System.Windows.Forms.Button();
-            this.btnDelete = new System.Windows.Forms.Button();
-            this.btnRefresh = new System.Windows.Forms.Button();
-            this.btnTodayBirthdays = new System.Windows.Forms.Button();
-            this.btnSetRemindTime = new System.Windows.Forms.Button();
-            this.label1 = new System.Windows.Forms.Label();
-            this.statusStrip1 = new System.Windows.Forms.StatusStrip();
-            this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
+            this.dataGridView1 = new DataGridView();
+            this.btnAdd = new Button();
+            this.btnEdit = new Button();
+            this.btnDelete = new Button();
+            this.btnRefresh = new Button();
+            this.btnTodayBirthdays = new Button();
+            this.label1 = new Label();
+            this.menuStrip1 = new MenuStrip();
+            
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
             this.SuspendLayout();
             // 
-            // dataGridView1
+            // label1 - Title
             // 
+            this.label1.Font = new Font("Microsoft YaHei", 14F, FontStyle.Bold);
+            this.label1.Location = new Point(20, 15);
+            this.label1.AutoSize = true;
+            this.label1.Text = "生日提醒";
+            this.label1.ForeColor = Color.FromArgb(24, 144, 255);
+            // 
+            // Toolbar Panel
+            var toolbar = new FlowLayoutPanel
+            {
+                Location = new Point(15, 50),
+                Size = new Size(770, 40),
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink
+            };
+            
+            // btnAdd
+            this.btnAdd.Size = new Size(70, 32);
+            this.btnAdd.Text = "新增";
+            this.btnAdd.FlatStyle = FlatStyle.Flat;
+            this.btnAdd.BackColor = Color.FromArgb(24, 144, 255);
+            this.btnAdd.ForeColor = Color.White;
+            this.btnAdd.Click += new System.EventHandler(this.btnAdd_Click);
+            
+            // btnEdit
+            this.btnEdit.Size = new Size(70, 32);
+            this.btnEdit.Text = "编辑";
+            this.btnEdit.FlatStyle = FlatStyle.Flat;
+            this.btnEdit.Click += new System.EventHandler(this.btnEdit_Click);
+            
+            // btnDelete
+            this.btnDelete.Size = new Size(70, 32);
+            this.btnDelete.Text = "删除";
+            this.btnDelete.FlatStyle = FlatStyle.Flat;
+            this.btnDelete.BackColor = Color.FromArgb(255, 77, 89);
+            this.btnDelete.ForeColor = Color.White;
+            this.btnDelete.Click += new System.EventHandler(this.btnDelete_Click);
+            
+            // btnRefresh
+            this.btnRefresh.Size = new Size(70, 32);
+            this.btnRefresh.Text = "刷新";
+            this.btnRefresh.FlatStyle = FlatStyle.Flat;
+            this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
+            
+            // btnTodayBirthdays
+            this.btnTodayBirthdays.Size = new Size(90, 32);
+            this.btnTodayBirthdays.Text = "今日生日";
+            this.btnTodayBirthdays.FlatStyle = FlatStyle.Flat;
+            this.btnTodayBirthdays.BackColor = Color.FromArgb(255, 240, 245);
+            this.btnTodayBirthdays.ForeColor = Color.FromArgb(255, 77, 89);
+            this.btnTodayBirthdays.Click += new System.EventHandler(this.btnTodayBirthdays_Click);
+            
+            toolbar.Controls.Add(this.btnAdd);
+            toolbar.Controls.Add(this.btnEdit);
+            toolbar.Controls.Add(this.btnDelete);
+            toolbar.Controls.Add(this.btnRefresh);
+            toolbar.Controls.Add(this.btnTodayBirthdays);
+            
+            // menuStrip1 - Menu
+            this.menuStrip1.Location = new Point(600, 12);
+            this.menuStrip1.Dock = DockStyle.None;
+            
+            var fileMenu = new ToolStripMenuItem("文件");
+            var importItem = new ToolStripMenuItem("导入Excel");
+            importItem.Click += (s, e) => ImportExcel();
+            var exportItem = new ToolStripMenuItem("导出Excel");
+            exportItem.Click += (s, e) => ExportExcel();
+            fileMenu.DropDownItems.Add(importItem);
+            fileMenu.DropDownItems.Add(exportItem);
+            fileMenu.DropDownItems.Add(new ToolStripSeparator());
+            fileMenu.DropDownItems.Add(new ToolStripMenuItem("退出", null, (s, e) => ExitApp()));
+            
+            var settingsMenu = new ToolStripMenuItem("设置");
+            settingsMenu.Click += (s, e) => ShowSettingsForm();
+            
+            this.menuStrip1.Items.Add(fileMenu);
+            this.menuStrip1.Items.Add(settingsMenu);
+            
+            // dataGridView1
+            this.dataGridView1.Location = new Point(15, 100);
+            this.dataGridView1.Size = new Size(770, 380);
+            this.dataGridView1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             this.dataGridView1.AllowUserToAddRows = false;
             this.dataGridView1.AllowUserToDeleteRows = false;
-            this.dataGridView1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridView1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dataGridView1.Location = new System.Drawing.Point(0, 120);
-            this.dataGridView1.Name = "dataGridView1";
             this.dataGridView1.ReadOnly = true;
-            this.dataGridView1.RowTemplate.Height = 25;
-            this.dataGridView1.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.dataGridView1.Size = new System.Drawing.Size(800, 380);
-            this.dataGridView1.TabIndex = 0;
-            // 
-            // btnAdd
-            // 
-            this.btnAdd.Location = new System.Drawing.Point(12, 35);
-            this.btnAdd.Name = "btnAdd";
-            this.btnAdd.Size = new System.Drawing.Size(75, 30);
-            this.btnAdd.TabIndex = 1;
-            this.btnAdd.Text = "新增";
-            this.btnAdd.UseVisualStyleBackColor = true;
-            this.btnAdd.Click += new System.EventHandler(this.btnAdd_Click);
-            // 
-            // btnEdit
-            // 
-            this.btnEdit.Location = new System.Drawing.Point(93, 35);
-            this.btnEdit.Name = "btnEdit";
-            this.btnEdit.Size = new System.Drawing.Size(75, 30);
-            this.btnEdit.TabIndex = 2;
-            this.btnEdit.Text = "编辑";
-            this.btnEdit.UseVisualStyleBackColor = true;
-            this.btnEdit.Click += new System.EventHandler(this.btnEdit_Click);
-            // 
-            // btnDelete
-            // 
-            this.btnDelete.Location = new System.Drawing.Point(174, 35);
-            this.btnDelete.Name = "btnDelete";
-            this.btnDelete.Size = new System.Drawing.Size(75, 30);
-            this.btnDelete.TabIndex = 3;
-            this.btnDelete.Text = "删除";
-            this.btnDelete.UseVisualStyleBackColor = true;
-            this.btnDelete.Click += new System.EventHandler(this.btnDelete_Click);
-            // 
-            // btnRefresh
-            // 
-            this.btnRefresh.Location = new System.Drawing.Point(255, 35);
-            this.btnRefresh.Name = "btnRefresh";
-            this.btnRefresh.Size = new System.Drawing.Size(75, 30);
-            this.btnRefresh.TabIndex = 4;
-            this.btnRefresh.Text = "刷新";
-            this.btnRefresh.UseVisualStyleBackColor = true;
-            this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
-            // 
-            // btnTodayBirthdays
-            // 
-            this.btnTodayBirthdays.BackColor = System.Drawing.Color.MistyRose;
-            this.btnTodayBirthdays.Font = new System.Drawing.Font("Microsoft YaHei", 9F, System.Drawing.FontStyle.Bold);
-            this.btnTodayBirthdays.Location = new System.Drawing.Point(336, 35);
-            this.btnTodayBirthdays.Name = "btnTodayBirthdays";
-            this.btnTodayBirthdays.Size = new System.Drawing.Size(120, 30);
-            this.btnTodayBirthdays.TabIndex = 5;
-            this.btnTodayBirthdays.Text = "今日生日";
-            this.btnTodayBirthdays.UseVisualStyleBackColor = false;
-            this.btnTodayBirthdays.Click += new System.EventHandler(this.btnTodayBirthdays_Click);
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Font = new System.Drawing.Font("Microsoft YaHei", 12F, System.Drawing.FontStyle.Bold);
-            this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(233)))), ((int)(((byte)(30)))), ((int)(((byte)(98)))));
-            this.label1.Location = new System.Drawing.Point(12, 9);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(76, 22);
-            this.label1.TabIndex = 9;
-            this.label1.Text = "生日提醒";
-            // 
-            // statusStrip1
-            // 
-            this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripStatusLabel1});
-            this.statusStrip1.Location = new System.Drawing.Point(0, 478);
-            this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(800, 22);
-            this.statusStrip1.TabIndex = 10;
-            this.statusStrip1.Text = "statusStrip1";
-            // 
-            // toolStripStatusLabel1
-            // 
-            this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
-            this.toolStripStatusLabel1.Size = new System.Drawing.Size(56, 17);
-            this.toolStripStatusLabel1.Text = "就绪";
-            // btnSetRemindTime
-            // 
-            this.btnSetRemindTime.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(66)))), ((int)(((byte)(133)))), ((int)(((byte)(244)))));
-            this.btnSetRemindTime.FlatAppearance.BorderSize = 0;
-            this.btnSetRemindTime.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSetRemindTime.Font = new System.Drawing.Font("Microsoft YaHei", 9F);
-            this.btnSetRemindTime.ForeColor = System.Drawing.Color.White;
-            this.btnSetRemindTime.Location = new System.Drawing.Point(470, 35);
-            this.btnSetRemindTime.Name = "btnSetRemindTime";
-            this.btnSetRemindTime.Size = new System.Drawing.Size(80, 30);
-            this.btnSetRemindTime.TabIndex = 6;
-            this.btnSetRemindTime.Text = "⚙️ 设置";
-            this.btnSetRemindTime.UseVisualStyleBackColor = false;
-            this.btnSetRemindTime.Click += new System.EventHandler(this.btnSetRemindTime_Click);
-            // 
+            this.dataGridView1.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            this.dataGridView1.RowTemplate.Height = 30;
+            this.dataGridView1.ColumnHeadersHeight = 30;
+            this.dataGridView1.BackgroundColor = Color.White;
+            this.dataGridView1.BorderStyle = BorderStyle.None;
+            this.dataGridView1.GridColor = Color.FromArgb(240, 240, 240);
+            this.dataGridView1.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(250, 250, 250);
+            this.dataGridView1.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(24, 144, 255);
+            
             // MainForm
-            // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
-            this.ClientSize = new System.Drawing.Size(800, 500);
-            this.Controls.Add(this.statusStrip1);
+            this.Size = new Size(800, 500);
+            this.MinimumSize = new Size(800, 500);
+            this.BackColor = Color.FromArgb(250, 250, 250);
+            this.Controls.Add(this.menuStrip1);
             this.Controls.Add(this.label1);
-            this.Controls.Add(this.btnSetRemindTime);
-            this.Controls.Add(this.btnTodayBirthdays);
-            this.Controls.Add(this.btnRefresh);
-            this.Controls.Add(this.btnDelete);
-            this.Controls.Add(this.btnEdit);
-            this.Controls.Add(this.btnAdd);
+            this.Controls.Add(toolbar);
             this.Controls.Add(this.dataGridView1);
             this.Name = "MainForm";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+            this.StartPosition = FormStartPosition.CenterScreen;
             this.Text = "生日提醒";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
-            this.Load += new System.EventHandler(this.MainForm_Load);
+            this.FormClosing += new FormClosingEventHandler(this.MainForm_FormClosing);
+            this.Load += new EventHandler(this.MainForm_Load);
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).EndInit();
             this.ResumeLayout(false);
-            this.PerformLayout();
         }
         
-        #endregion
-        
-        private System.Windows.Forms.DataGridView dataGridView1;
-        private System.Windows.Forms.Button btnAdd;
-        private System.Windows.Forms.Button btnEdit;
-        private System.Windows.Forms.Button btnDelete;
-        private System.Windows.Forms.Button btnRefresh;
-        private System.Windows.Forms.Button btnTodayBirthdays;
-        private System.Windows.Forms.Button btnSetRemindTime;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.StatusStrip statusStrip1;
-        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
+        private DataGridView dataGridView1;
+        private Button btnAdd;
+        private Button btnEdit;
+        private Button btnDelete;
+        private Button btnRefresh;
+        private Button btnTodayBirthdays;
+        private Label label1;
+        private MenuStrip menuStrip1;
     }
 }
