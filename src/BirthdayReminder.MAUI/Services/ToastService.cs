@@ -10,8 +10,9 @@ public class ToastService
     /// </summary>
     public async Task ShowToastAsync(string message, ToastDuration duration = ToastDuration.Short)
     {
+        ConsoleLogger.Log($"[Toast] {message}");
 #if WINDOWS
-        await MainThread.InvokeOnMainThreadAsync(() => ShowWindowsToast(message));
+        ShowWindowsToast(message);
 #elif ANDROID
         await ShowAndroidToast(message, duration);
 #elif IOS || MACCATALYST
@@ -25,40 +26,49 @@ public class ToastService
     {
         try
         {
-            // 清理 emoji，Windows Toast 对某些 emoji 支持不好
             var cleanMessage = CleanEmoji(message);
+            ConsoleLogger.Log($"[Toast] 尝试显示: {cleanMessage}");
             
+            // 使用 Windows 原生 Toast API
             var toastXml = $@"
-<toast duration='short'>
+<toast duration='long'>
     <visual>
         <binding template='ToastGeneric'>
-            <text>{EscapeXml("BirthdayReminder")}</text>
-            <text>{EscapeXml(cleanMessage)}</text>
+            <text>BirthdayReminder</text>
+            <text>{EscapeXmlText(cleanMessage)}</text>
         </binding>
     </visual>
 </toast>";
-
-            System.Diagnostics.Debug.WriteLine($"[Toast] XML: {toastXml}");
 
             var xmlDoc = new Windows.Data.Xml.Dom.XmlDocument();
             xmlDoc.LoadXml(toastXml);
 
             var toast = new Windows.UI.Notifications.ToastNotification(xmlDoc);
-            toast.Tag = "BirthdayReminderToast";
-            toast.Group = "BirthdayReminder";
-
-            // 使用默认 notifier（不指定 AUMID）
-            var notifier = Windows.UI.Notifications.ToastNotificationManager.CreateToastNotifier();
+            
+            // 使用 ToastNotificationManager，传入进程名作为 AUMID
+            var appId = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+            ConsoleLogger.Log($"[Toast] 使用 AUMID: {appId}");
+            
+            var notifier = Windows.UI.Notifications.ToastNotificationManager.CreateToastNotifier(appId);
             notifier.Show(toast);
             
-            System.Diagnostics.Debug.WriteLine($"[Toast] 已发送: {cleanMessage}");
+            ConsoleLogger.Log($"[Toast] 发送成功");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Toast] 显示失败: {ex.Message}");
-            System.Diagnostics.Debug.WriteLine($"[Toast] 堆栈: {ex.StackTrace}");
+            ConsoleLogger.LogError($"[Toast] 发送失败", ex);
         }
     }
+
+    /// <summary>
+    /// 转义 XML 特殊字符
+    /// </summary>
+    private static string EscapeXmlText(string text) =>
+        text.Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;")
+            .Replace("\"", "&quot;")
+            .Replace("'", "&apos;");
 
     /// <summary>
     /// 清理可能导致 XML 解析问题的字符
@@ -78,13 +88,6 @@ public class ToastService
             .Replace("📅", "[检查] ")
             .Replace("➕", "[新增] ");
     }
-
-    private static string EscapeXml(string text) =>
-        text.Replace("&", "&amp;")
-            .Replace("<", "&lt;")
-            .Replace(">", "&gt;")
-            .Replace("\"", "&quot;")
-            .Replace("'", "&apos;");
 #endif
 
 #if ANDROID

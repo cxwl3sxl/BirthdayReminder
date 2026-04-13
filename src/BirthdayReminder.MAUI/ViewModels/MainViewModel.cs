@@ -18,6 +18,7 @@ public class MainViewModel : INotifyPropertyChanged
     private readonly DatabaseService _databaseService;
     private readonly ExcelService _excelService;
     private readonly NotificationService _notificationService;
+    private readonly ToastService _toastService;
 
     public ObservableCollection<BirthdayEntry> BirthdayEntries { get; } = new();
     public ObservableCollection<BirthdayEntry> UpcomingBirthdays { get; } = new();
@@ -87,6 +88,7 @@ public class MainViewModel : INotifyPropertyChanged
         _databaseService = new DatabaseService();
         _excelService = new ExcelService();
         _notificationService = new NotificationService(_databaseService);
+        _toastService = new ToastService();
 
         ImportCommand = new Command(async () => await ImportExcelAsync());
         RefreshCommand = new Command(async () => await RefreshDataAsync());
@@ -184,10 +186,12 @@ public class MainViewModel : INotifyPropertyChanged
         {
             IsLoading = true;
             StatusMessage = "请选择 Excel 文件...";
+            ConsoleLogger.Log("开始导入...");
 
 #if WINDOWS
             // 使用 Windows 原生文件选择器
             var filePath = await WindowsFilePicker.PickFileAsync("选择生日 Excel 文件", ".xlsx");
+            ConsoleLogger.Log($"选择文件: {filePath}");
             if (string.IsNullOrEmpty(filePath))
             {
                 StatusMessage = "取消选择";
@@ -221,6 +225,7 @@ public class MainViewModel : INotifyPropertyChanged
             if (entries.Count == 0)
             {
                 StatusMessage = "未找到有效数据";
+                await _toastService.ShowToastAsync("未找到有效数据，请检查Excel文件格式", ToastDuration.Long);
                 return;
             }
 
@@ -228,10 +233,14 @@ public class MainViewModel : INotifyPropertyChanged
             await RefreshDataAsync();
 
             StatusMessage = $"成功导入 {count} 条记录";
+            await _toastService.ShowToastAsync($"成功导入 {count} 条记录！", ToastDuration.Long);
+            ConsoleLogger.Log($"成功导入 {count} 条记录");
         }
         catch (Exception ex)
         {
+            ConsoleLogger.LogError("导入错误", ex);
             StatusMessage = $"导入失败: {ex.Message}";
+            await _toastService.ShowToastAsync($"导入失败: {ex.Message}", ToastDuration.Long);
         }
         finally
         {

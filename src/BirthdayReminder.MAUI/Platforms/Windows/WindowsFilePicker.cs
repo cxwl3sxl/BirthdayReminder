@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
+using BirthdayReminder.MAUI.Services;
 
 namespace BirthdayReminder.MAUI.Platforms.Windows;
 
@@ -14,6 +15,8 @@ public static class WindowsFilePicker
     /// </summary>
     public static async Task<string?> PickFileAsync(string title, params string[] fileTypes)
     {
+        ConsoleLogger.Log($"[WindowsFilePicker] 开始选择文件: {title}");
+        
         var openPicker = new FileOpenPicker
         {
             ViewMode = PickerViewMode.List,
@@ -27,12 +30,14 @@ public static class WindowsFilePicker
 
         // 获取当前活动窗口句柄
         var hwnd = GetActiveWindow();
+        ConsoleLogger.Log($"[WindowsFilePicker] 窗口句柄: {hwnd}");
         if (hwnd != IntPtr.Zero)
         {
             InitializeWithWindow.Initialize(openPicker, hwnd);
         }
 
         var file = await openPicker.PickSingleFileAsync();
+        ConsoleLogger.Log($"[WindowsFilePicker] 选择结果: {file?.Path}");
         return file?.Path;
     }
 
