@@ -643,7 +643,6 @@ function App() {
             onChange={(e) => setSearchText(e.target.value)}
             onSearch={handleSearch}
             allowClear
-            enterButton="搜索"
             style={{ width: '100%' }}
           />
         </div>
