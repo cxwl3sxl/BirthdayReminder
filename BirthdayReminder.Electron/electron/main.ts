@@ -3,7 +3,8 @@ import path from 'path'
 import log from 'electron-log'
 import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays, getContactsInDays } from './database'
 import { importExcel, exportExcel } from './excel'
-import { getSettings, setAutoStart, setReminderTime } from './settings'
+import { getSettings, setAutoStart, setReminderTime, setWeChatBound } from './settings'
+import * as wechat from './wechat'
 
 // Configure logging
 log.transports.file.level = 'info'
@@ -15,6 +16,7 @@ let mainWindow: BrowserWindow | null = null
 let listWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let reminderTimer: NodeJS.Timeout | null = null
+let wechatPushTimer: NodeJS.Timeout | null = null
 
 // Environment
 const isDev = !app.isPackaged
@@ -271,6 +273,89 @@ const startReminder = () => {
   checkAndSchedule()
 }
 
+// Generate birthday message for WeChat push
+const generateBirthdayMessage = (contacts: Contact[]): string => {
+  const today = new Date()
+  const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`
+  
+  let message = `🎂 生日提醒\n\n今天是 ${dateStr}，以下朋友过生日：\n\n`
+  
+  for (const contact of contacts) {
+    message += `• ${contact.name}`
+    if (contact.phoneNumber) {
+      message += ` (${contact.phoneNumber})`
+    }
+    if (contact.remarks) {
+      message += `\n  备注: ${contact.remarks}`
+    }
+    message += '\n'
+  }
+  
+  message += `\n祝他们生日快乐！🎉`
+  return message
+}
+
+// Start WeChat push timer
+const startWeChatPush = () => {
+  if (wechatPushTimer) {
+    clearInterval(wechatPushTimer)
+  }
+  
+  log.info('Starting WeChat birthday push...')
+  
+  // Check every hour
+  wechatPushTimer = setInterval(async () => {
+    const settings = getSettings()
+    if (!settings.wechatBound || !wechat.isLoggedIn()) {
+      return
+    }
+    
+    const now = new Date()
+    const [targetHour] = settings.reminderTime.split(':').map(Number)
+    
+    // Only push at the configured time
+    if (now.getHours() === targetHour && now.getMinutes() === 0) {
+      const contacts = await getTodayBirthdays()
+      if (contacts.length > 0) {
+        const creds = wechat.getCredentials()
+        if (creds) {
+          const message = generateBirthdayMessage(contacts)
+          try {
+            await wechat.sendTextMessage(creds.userId, message)
+            log.info('WeChat birthday push sent successfully')
+          } catch (err) {
+            log.error('WeChat push failed:', err)
+          }
+        }
+      }
+    }
+  }, 60 * 60 * 1000) // Check every hour
+  
+  // Also do an immediate check
+  const settings = getSettings()
+  if (settings.wechatBound && wechat.isLoggedIn()) {
+    const now = new Date()
+    const [targetHour] = settings.reminderTime.split(':').map(Number)
+    if (now.getHours() === targetHour) {
+      // Run immediately if it's the configured hour
+      setTimeout(async () => {
+        const contacts = await getTodayBirthdays()
+        if (contacts.length > 0) {
+          const creds = wechat.getCredentials()
+          if (creds) {
+            const message = generateBirthdayMessage(contacts)
+            try {
+              await wechat.sendTextMessage(creds.userId, message)
+            } catch (err) {
+              log.error('WeChat push failed:', err)
+            }
+          }
+        }
+      }, 1000)
+    }
+  }
+}
+
 // IPC Handlers
 const setupIPC = () => {
   ipcMain.handle('get-contacts', async () => await getContacts())
@@ -327,6 +412,62 @@ const setupIPC = () => {
     setReminderTime(time)
     startReminder() // Restart with new time
   })
+  // WeChat handlers
+  ipcMain.handle('wechat-init-login', async () => {
+    try {
+      const qrcode = await wechat.initWeChatLogin()
+      return { success: true, qrcode }
+    } catch (error) {
+      log.error('WeChat login init failed:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
+  ipcMain.handle('wechat-complete-login', async (_, qrcode: string) => {
+    try {
+      const creds = await wechat.completeWeChatLogin(qrcode)
+      setWeChatBound(true, creds.userId)
+      startWeChatPush() // Start WeChat push timer
+      return { success: true, userId: creds.userId }
+    } catch (error) {
+      log.error('WeChat login complete failed:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
+  ipcMain.handle('wechat-get-status', () => {
+    return {
+      bound: wechat.isLoggedIn(),
+      userId: wechat.getCredentials()?.userId
+    }
+  })
+  ipcMain.handle('wechat-unbind', () => {
+    wechat.clearCredentials()
+    setWeChatBound(false)
+    if (wechatPushTimer) {
+      clearInterval(wechatPushTimer)
+      wechatPushTimer = null
+    }
+    return { success: true }
+  })
+  ipcMain.handle('wechat-test-send', async () => {
+    try {
+      const contacts = await getTodayBirthdays()
+      if (contacts.length === 0) {
+        return { success: false, message: '今日无生日联系人' }
+      }
+      
+      const creds = wechat.getCredentials()
+      if (!creds) {
+        return { success: false, message: '未绑定微信' }
+      }
+      
+      const message = generateBirthdayMessage(contacts)
+      await wechat.sendTextMessage(creds.userId, message)
+      return { success: true, message: '测试消息发送成功' }
+    } catch (error) {
+      log.error('WeChat test send failed:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
 }
 
 // App ready
@@ -334,12 +475,20 @@ app.whenReady().then(async () => {
   log.info('App ready')
   try {
     await initDatabase()
+    wechat.initWeChat() // Initialize WeChat and load credentials
     setupIPC()
     createWindow()
     createTray()
     // Check and show today's birthday notification on startup
     await showTodayBirthdaysNotification()
     startReminder()
+    
+    // Start WeChat push if already bound
+    const settings = getSettings()
+    if (settings.wechatBound && wechat.isLoggedIn()) {
+      startWeChatPush()
+    }
+    
     log.info('Application started successfully')
   } catch (error) {
     log.error('Error during startup:', error)

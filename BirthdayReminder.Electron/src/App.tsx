@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Space, Modal, Form, Input, DatePicker, message, Dropdown, Popconfirm, Switch, TimePicker } from 'antd'
+import { Table, Button, Space, Modal, Form, Input, DatePicker, message, Dropdown, Popconfirm, Switch, TimePicker, Spin, Divider } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import pinyin from 'pinyin'
@@ -9,7 +9,10 @@ import {
   UploadOutlined,
   UserOutlined,
   CalendarOutlined,
-  SearchOutlined
+  SearchOutlined,
+  WechatOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons'
 
 // Windows 10 Style Icons (SVG)
@@ -74,9 +77,15 @@ declare global {
       onLoadBirthdayList: (callback: (type: string) => void) => () => void
       onContactsUpdated: (callback: () => void) => () => void
       onOpenSettings: (callback: () => void) => () => void
-      getSettings: () => Promise<{ autoStart: boolean; reminderTime: string }>
+      getSettings: () => Promise<{ autoStart: boolean; reminderTime: string; wechatBound: boolean; wechatUserId?: string }>
       setAutoStart: (enabled: boolean) => Promise<void>
       setReminderTime: (time: string) => Promise<void>
+      // WeChat
+      wechatInitLogin: () => Promise<{ success: boolean; qrcode?: string; error?: string }>
+      wechatCompleteLogin: (qrcode: string) => Promise<{ success: boolean; userId?: string; error?: string }>
+      wechatGetStatus: () => Promise<{ bound: boolean; userId?: string }>
+      wechatUnbind: () => Promise<{ success: boolean }>
+      wechatTestSend: () => Promise<{ success: boolean; message?: string; error?: string }>
     }
   }
 }
@@ -259,9 +268,15 @@ function App() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [isMaximized, setIsMaximized] = useState(false)
   const [settingsVisible, setSettingsVisible] = useState(false)
-  const [settings, setSettings] = useState({ autoStart: false, reminderTime: '10:00' })
+  const [settings, setSettings] = useState({ autoStart: false, reminderTime: '10:00', wechatBound: false })
   const [searchText, setSearchText] = useState('')
   const [form] = Form.useForm()
+  // WeChat state
+  const [wechatModalVisible, setWechatModalVisible] = useState(false)
+  const [wechatQRCode, setWechatQRCode] = useState<string | null>(null)
+  const [wechatLoginComplete, setWechatLoginComplete] = useState(false)
+  const [wechatUserId, setWechatUserId] = useState<string | null>(null)
+  const [wechatStatus, setWechatStatus] = useState<{ bound: boolean; userId?: string }>({ bound: false, userId: undefined })
 
   // Get pinyin from Chinese text
   const getPinyin = (text: string): string => {
@@ -338,6 +353,9 @@ function App() {
     try {
       const s = await window.electronAPI.getSettings()
       setSettings(s)
+      // Check WeChat status
+      const status = await window.electronAPI.wechatGetStatus()
+      setWechatStatus(status)
     } catch (error) {
       console.error('Failed to load settings:', error)
     }
@@ -347,6 +365,46 @@ function App() {
     const maximized = await window.electronAPI.windowIsMaximized()
     setIsMaximized(maximized)
   }
+
+  // Start WeChat login flow
+  const startWeChatLogin = async () => {
+    setWechatQRCode(null)
+    setWechatLoginComplete(false)
+    setWechatUserId(null)
+    
+    try {
+      const result = await window.electronAPI.wechatInitLogin()
+      if (result.success && result.qrcode) {
+        setWechatQRCode(result.qrcode)
+        
+        // Poll for login completion
+        const pollLogin = setInterval(async () => {
+          const status = await window.electronAPI.wechatGetStatus()
+          if (status.bound) {
+            clearInterval(pollLogin)
+            setWechatLoginComplete(true)
+            setWechatUserId(status.userId || null)
+          }
+        }, 2000)
+        
+        // Stop polling after 3 minutes
+        setTimeout(() => {
+          clearInterval(pollLogin)
+        }, 180000)
+      } else {
+        message.error(result.error || '获取二维码失败')
+      }
+    } catch (error) {
+      message.error('微信登录初始化失败')
+    }
+  }
+  
+  // Update the button click handler
+  useEffect(() => {
+    if (wechatModalVisible && !wechatQRCode) {
+      startWeChatLogin()
+    }
+  }, [wechatModalVisible])
 
   const handleMinimize = async () => {
     await window.electronAPI.windowMinimize()
@@ -711,8 +769,71 @@ function App() {
           onCancel={() => setSettingsVisible(false)}
           footer={null}
           centered
+          width={500}
         >
           <div style={{ padding: '20px 0' }}>
+            {/* WeChat Binding Section */}
+            <div style={{ marginBottom: 24, padding: '16px', background: 'var(--color-bg-secondary)', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <WechatOutlined style={{ fontSize: 20, color: '#07C160' }} />
+                <span style={{ fontWeight: 600, fontSize: 15 }}>微信推送</span>
+                {wechatStatus.bound ? (
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                ) : (
+                  <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                )}
+              </div>
+              
+              {!wechatStatus.bound ? (
+                <div>
+                  <div style={{ color: '#666', fontSize: 13, marginBottom: 12 }}>
+                    绑定微信后，每天定时推送生日联系人清单
+                  </div>
+                  <Button 
+                    type="primary" 
+                    icon={<WechatOutlined />}
+                    onClick={() => setWechatModalVisible(true)}
+                  >
+                    扫码绑定微信
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ color: '#666', fontSize: 13, marginBottom: 12 }}>
+                    已绑定微信，每天 {settings.reminderTime} 推送生日提醒
+                  </div>
+                  <Space>
+                    <Button 
+                      size="small"
+                      onClick={async () => {
+                        const result = await window.electronAPI.wechatTestSend()
+                        if (result.success) {
+                          message.success(result.message || '测试消息已发送')
+                        } else {
+                          message.error(result.error || '发送失败')
+                        }
+                      }}
+                    >
+                      测试推送
+                    </Button>
+                    <Button 
+                      size="small" 
+                      danger
+                      onClick={async () => {
+                        await window.electronAPI.wechatUnbind()
+                        setWechatStatus({ bound: false, userId: undefined })
+                        message.success('已解除绑定')
+                      }}
+                    >
+                      解除绑定
+                    </Button>
+                  </Space>
+                </div>
+              )}
+            </div>
+            
+            <Divider style={{ margin: '16px 0' }} />
+            
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontWeight: 500, marginBottom: 8 }}>开机启动</div>
               <Switch
@@ -743,9 +864,60 @@ function App() {
                 style={{ width: 120 }}
               />
               <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
-                每天定时提醒当日生日联系人
+                每天定时提醒当日生日联系人（同时也是微信推送时间）
               </div>
             </div>
+          </div>
+        </Modal>
+        
+        {/* WeChat QR Code Modal */}
+        <Modal
+          title="微信扫码绑定"
+          open={wechatModalVisible}
+          onCancel={() => setWechatModalVisible(false)}
+          footer={null}
+          centered
+          width={400}
+        >
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            {!wechatQRCode ? (
+              <div>
+                <Spin />
+                <div style={{ marginTop: 16, color: '#666' }}>正在获取二维码...</div>
+              </div>
+            ) : !wechatLoginComplete ? (
+              <div>
+                <img 
+                  src={wechatQRCode} 
+                  alt="微信扫码二维码" 
+                  style={{ width: 250, height: 250, border: '1px solid #eee' }}
+                />
+                <div style={{ marginTop: 16, color: '#666' }}>
+                  请使用微信扫描二维码并在手机上确认授权
+                </div>
+                <div style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
+                  二维码有效期3分钟，请尽快完成
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '40px 0' }}>
+                <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
+                <div style={{ marginTop: 16, fontSize: 16, fontWeight: 500 }}>
+                  绑定成功！
+                </div>
+                <Button 
+                  type="primary" 
+                  style={{ marginTop: 24 }}
+                  onClick={() => {
+                    setWechatModalVisible(false)
+                    setWechatStatus({ bound: true, userId: wechatUserId || '' })
+                    message.success('微信绑定成功')
+                  }}
+                >
+                  完成
+                </Button>
+              </div>
+            )}
           </div>
         </Modal>
       </div>

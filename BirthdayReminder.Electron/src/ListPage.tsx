@@ -46,9 +46,15 @@ declare global {
       onLoadBirthdayList: (callback: (type: string) => void) => () => void
       onContactsUpdated: (callback: () => void) => () => void
       onOpenSettings: (callback: () => void) => () => void
-      getSettings: () => Promise<{ autoStart: boolean; reminderTime: string }>
+      getSettings: () => Promise<{ autoStart: boolean; reminderTime: string; wechatBound: boolean; wechatUserId?: string }>
       setAutoStart: (enabled: boolean) => Promise<void>
       setReminderTime: (time: string) => Promise<void>
+      // WeChat
+      wechatInitLogin: () => Promise<{ success: boolean; qrcode?: string; error?: string }>
+      wechatCompleteLogin: (qrcode: string) => Promise<{ success: boolean; userId?: string; error?: string }>
+      wechatGetStatus: () => Promise<{ bound: boolean; userId?: string }>
+      wechatUnbind: () => Promise<{ success: boolean }>
+      wechatTestSend: () => Promise<{ success: boolean; message?: string; error?: string }>
     }
   }
 }

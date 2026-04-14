@@ -40,5 +40,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setAutoStart: (enabled: boolean) => ipcRenderer.invoke('set-auto-start', enabled),
-  setReminderTime: (time: string) => ipcRenderer.invoke('set-reminder-time', time)
+  setReminderTime: (time: string) => ipcRenderer.invoke('set-reminder-time', time),
+  // WeChat
+  wechatInitLogin: () => ipcRenderer.invoke('wechat-init-login'),
+  wechatCompleteLogin: (qrcode: string) => ipcRenderer.invoke('wechat-complete-login', qrcode),
+  wechatGetStatus: () => ipcRenderer.invoke('wechat-get-status'),
+  wechatUnbind: () => ipcRenderer.invoke('wechat-unbind'),
+  wechatTestSend: () => ipcRenderer.invoke('wechat-test-send')
 })
