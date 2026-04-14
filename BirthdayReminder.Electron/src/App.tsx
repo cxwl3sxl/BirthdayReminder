@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Table, Button, Space, Modal, Form, Input, DatePicker, message, Dropdown, Popconfirm, Switch, TimePicker } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
+import pinyin from 'pinyin'
 import {
   PlusOutlined,
   DownloadOutlined,
@@ -262,18 +263,47 @@ function App() {
   const [searchText, setSearchText] = useState('')
   const [form] = Form.useForm()
 
-  // Filter contacts based on search text
+  // Get pinyin from Chinese text
+  const getPinyin = (text: string): string => {
+    try {
+      const result = pinyin(text, { style: pinyin.STYLE_NORMAL })
+      return result.flat().join(' ')
+    } catch {
+      return text
+    }
+  }
+
+  // Filter contacts based on search text (including pinyin)
   const filteredContacts = contacts.filter(contact => {
     if (!searchText) return true
-    const search = searchText.toLowerCase()
+    const search = searchText.toLowerCase().trim()
+    if (!search) return true
+    
+    const name = contact.name || ''
+    const phoneNumber = contact.phoneNumber || ''
+    const birthday = contact.birthday || ''
+    const formattedBirthday = contact.formattedBirthday || ''
+    const remarks = contact.remarks || ''
+    const namePinyin = getPinyin(name).toLowerCase()
+    
     return (
-      contact.name?.toLowerCase().includes(search) ||
-      contact.phoneNumber?.toLowerCase().includes(search) ||
-      contact.birthday?.toLowerCase().includes(search) ||
-      contact.formattedBirthday?.toLowerCase().includes(search) ||
-      contact.remarks?.toLowerCase().includes(search)
+      name.toLowerCase().includes(search) ||
+      namePinyin.includes(search) ||
+      phoneNumber.toLowerCase().includes(search) ||
+      birthday.toLowerCase().includes(search) ||
+      formattedBirthday.toLowerCase().includes(search) ||
+      remarks.toLowerCase().includes(search)
     )
   })
+
+  // Handle search with toast notification
+  const handleSearch = (value: string) => {
+    setSearchText(value)
+    if (value.trim()) {
+      const count = filteredContacts.length
+      message.info(`找到 ${count} 条匹配结果`)
+    }
+  }
 
   useEffect(() => {
     loadContacts()
@@ -605,20 +635,17 @@ function App() {
         </div>
 
         {/* Search Bar */}
-        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center' }}>
-          <Input
-            placeholder="搜索姓名、手机号、生日、备注..."
+        <div style={{ marginBottom: 16 }}>
+          <Input.Search
+            placeholder="搜索姓名、手机号、生日、备注（支持拼音）..."
             prefix={<SearchOutlined style={{ color: '#999' }} />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
+            onSearch={handleSearch}
             allowClear
-            style={{ maxWidth: 300 }}
+            enterButton="搜索"
+            style={{ width: '100%' }}
           />
-          {searchText && (
-            <span style={{ marginLeft: 12, color: 'var(--color-text-secondary)', fontSize: 13 }}>
-              找到 {filteredContacts.length} 条结果
-            </span>
-          )}
         </div>
 
         {/* Table Card */}
