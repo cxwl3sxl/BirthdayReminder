@@ -102,9 +102,19 @@ const setupIPC = () => {
   ipcMain.handle('delete-contact', async (_, id: number) => await deleteContact(id))
   ipcMain.handle('get-today-birthdays', async () => await getTodayBirthdays())
   ipcMain.handle('import-excel', async () => {
-    const result = await dialog.showOpenDialog({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
-    if (!result.canceled && result.filePaths[0]) return await importExcel(result.filePaths[0])
-    return null
+    try {
+      const result = await dialog.showOpenDialog({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
+      if (!result.canceled && result.filePaths[0]) {
+        log.info('Opening file:', result.filePaths[0])
+        const contacts = await importExcel(result.filePaths[0])
+        log.info('Import result:', contacts?.length ?? 0, 'contacts')
+        return contacts
+      }
+      return null
+    } catch (error) {
+      log.error('import-excel handler error:', error)
+      return null
+    }
   })
   ipcMain.handle('export-excel', async () => {
     const result = await dialog.showSaveDialog({ defaultPath: 'birthdays.xlsx', filters: [{ name: 'Excel', extensions: ['xlsx'] }] })
