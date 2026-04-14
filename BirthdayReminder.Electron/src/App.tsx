@@ -56,14 +56,20 @@ declare global {
       updateContact: (contact: Contact) => Promise<void>
       deleteContact: (id: number) => Promise<void>
       getTodayBirthdays: () => Promise<Contact[]>
+      getUpcomingBirthdays: () => Promise<Contact[]>
       showTodayBirthdays: () => Promise<Contact[]>
+      showUpcomingBirthdays: () => Promise<Contact[]>
+      closeListWindow: () => Promise<void>
       importExcel: () => Promise<Contact[] | null>
       exportExcel: () => Promise<string | null>
       windowMinimize: () => Promise<void>
       windowMaximize: () => Promise<void>
       windowClose: () => Promise<void>
       windowIsMaximized: () => Promise<boolean>
+      listWindowMinimize: () => Promise<void>
+      listWindowClose: () => Promise<void>
       onShowTodayBirthdays: (callback: () => void) => () => void
+      onLoadBirthdayList: (callback: (type: string) => void) => () => void
     }
   }
 }
@@ -539,11 +545,13 @@ function App() {
               <div style={styles.statValue}>{contacts.length}</div>
               <div style={styles.statLabel}>总联系人</div>
             </div>
-            <div style={styles.statCard}>
-              <div style={styles.statValue}>{todayCount}</div>
+            <div style={{...styles.statCard, cursor: 'pointer'}} onClick={() => window.electronAPI.showTodayBirthdays()}>
+              <div style={{...styles.statValue, color: todayCount > 0 ? 'var(--color-primary)' : undefined}}>
+                {todayCount}
+              </div>
               <div style={styles.statLabel}>今日生日</div>
             </div>
-            <div style={styles.statCard}>
+            <div style={{...styles.statCard, cursor: 'pointer'}} onClick={() => window.electronAPI.showUpcomingBirthdays()}>
               <div style={styles.statValue}>{upcomingCount}</div>
               <div style={styles.statLabel}>30天内</div>
             </div>

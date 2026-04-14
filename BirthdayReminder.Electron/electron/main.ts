@@ -1,7 +1,7 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, Notification, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, Tray, Menu, Notification, dialog, screen } from 'electron'
 import path from 'path'
 import log from 'electron-log'
-import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays } from './database'
+import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays, getContactsInDays } from './database'
 import { importExcel, exportExcel } from './excel'
 
 // Configure logging
@@ -11,6 +11,7 @@ log.info('Application starting...')
 
 // Global references
 let mainWindow: BrowserWindow | null = null
+let listWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let reminderInterval: NodeJS.Timeout | null = null
 
@@ -19,6 +20,51 @@ const isDev = !app.isPackaged
 
 // Get preload path
 const getPreloadPath = () => path.join(__dirname, 'preload.js')
+
+// Create list window for birthday contacts
+const createListWindow = (type: 'today' | 'upcoming') => {
+  log.info(`Creating list window for: ${type}`)
+  
+  if (listWindow) {
+    listWindow.focus()
+    listWindow.webContents.send('load-birthday-list', type)
+    return
+  }
+  
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+  
+  listWindow = new BrowserWindow({
+    width: 600,
+    height: 500,
+    x: Math.round((screenWidth - 600) / 2),
+    y: Math.round((screenHeight - 500) / 2),
+    title: type === 'today' ? '今日生日' : '即将生日',
+    frame: false,
+    resizable: true,
+    webPreferences: {
+      preload: getPreloadPath(),
+      contextIsolation: true,
+      nodeIntegration: false
+    },
+    show: false
+  })
+  
+  listWindow.once('ready-to-show', () => {
+    listWindow?.show()
+    listWindow?.webContents.send('load-birthday-list', type)
+  })
+  
+  if (isDev) {
+    listWindow.loadURL('http://localhost:5173/#/list')
+  } else {
+    listWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: '/list' })
+  }
+  
+  listWindow.on('closed', () => {
+    listWindow = null
+  })
+}
 
 // Create main window
 const createWindow = () => {
@@ -72,15 +118,12 @@ const createTray = () => {
 }
 
 // Show notification
-const showNotification = (title: string, body?: string) => {
+const showNotification = (title: string, body?: string, type: 'today' | 'upcoming' = 'today') => {
   if (Notification.isSupported()) {
     const notification = new Notification({ title, body: body || '' })
     notification.show()
     notification.on('click', () => {
-      mainWindow?.show()
-      mainWindow?.focus()
-      // Send event to renderer to show today's birthdays
-      mainWindow?.webContents.send('show-today-birthdays')
+      createListWindow(type)
     })
   }
 }
@@ -113,12 +156,17 @@ const setupIPC = () => {
   ipcMain.handle('update-contact', async (_, contact) => await updateContact(contact))
   ipcMain.handle('delete-contact', async (_, id: number) => await deleteContact(id))
   ipcMain.handle('get-today-birthdays', async () => await getTodayBirthdays())
+  ipcMain.handle('get-upcoming-birthdays', async () => await getContactsInDays(30))
   // Show today's birthdays in UI
   ipcMain.handle('show-today-birthdays', async () => {
-    mainWindow?.show()
-    mainWindow?.focus()
+    createListWindow('today')
     return await getTodayBirthdays()
   })
+  ipcMain.handle('show-upcoming-birthdays', async () => {
+    createListWindow('upcoming')
+    return await getContactsInDays(30)
+  })
+  ipcMain.handle('close-list-window', () => listWindow?.close())
   ipcMain.handle('import-excel', async () => {
     try {
       const result = await dialog.showOpenDialog({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
@@ -147,6 +195,9 @@ const setupIPC = () => {
   })
   ipcMain.handle('window-close', () => mainWindow?.close())
   ipcMain.handle('window-is-maximized', () => mainWindow?.isMaximized())
+  // List window controls
+  ipcMain.handle('list-window-minimize', () => listWindow?.minimize())
+  ipcMain.handle('list-window-close', () => listWindow?.close())
 }
 
 // App ready

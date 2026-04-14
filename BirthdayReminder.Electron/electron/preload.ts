@@ -6,7 +6,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateContact: (contact: any) => ipcRenderer.invoke('update-contact', contact),
   deleteContact: (id: number) => ipcRenderer.invoke('delete-contact', id),
   getTodayBirthdays: () => ipcRenderer.invoke('get-today-birthdays'),
+  getUpcomingBirthdays: () => ipcRenderer.invoke('get-upcoming-birthdays'),
   showTodayBirthdays: () => ipcRenderer.invoke('show-today-birthdays'),
+  showUpcomingBirthdays: () => ipcRenderer.invoke('show-upcoming-birthdays'),
+  closeListWindow: () => ipcRenderer.invoke('close-list-window'),
   importExcel: () => ipcRenderer.invoke('import-excel'),
   exportExcel: () => ipcRenderer.invoke('export-excel'),
   // Window controls
@@ -14,9 +17,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),
   windowClose: () => ipcRenderer.invoke('window-close'),
   windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  // List window controls
+  listWindowMinimize: () => ipcRenderer.invoke('list-window-minimize'),
+  listWindowClose: () => ipcRenderer.invoke('list-window-close'),
   // Event listeners
   onShowTodayBirthdays: (callback: () => void) => {
     ipcRenderer.on('show-today-birthdays', callback)
     return () => ipcRenderer.removeListener('show-today-birthdays', callback)
+  },
+  onLoadBirthdayList: (callback: (type: string) => void) => {
+    ipcRenderer.on('load-birthday-list', (_, type) => callback(type))
+    return () => ipcRenderer.removeAllListeners('load-birthday-list')
   }
 })

@@ -66,6 +66,11 @@ export const getTodayBirthdays = async (): Promise<Contact[]> => {
   return contacts.filter(c => c.isBirthdayToday)
 }
 
+export const getContactsInDays = async (days: number): Promise<Contact[]> => {
+  const contacts = await getContacts()
+  return contacts.filter(c => c.daysUntil !== undefined && c.daysUntil > 0 && c.daysUntil <= days)
+}
+
 export const addContact = async (contact: Contact): Promise<number> => {
   if (!db) throw new Error('Database not initialized')
   const result = db.prepare('INSERT INTO contacts (name, phoneNumber, birthday, remarks) VALUES (@name, @phoneNumber, @birthday, @remarks)').run({
