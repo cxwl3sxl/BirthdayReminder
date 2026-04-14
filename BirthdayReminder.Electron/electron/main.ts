@@ -330,7 +330,14 @@ const startWeChatPush = () => {
         }
       }
     }
-  }, 60 * 60 * 1000) // Check every hour
+    
+    // Also handle incoming messages
+    try {
+      await wechat.handleIncomingMessages(getTodayBirthdays)
+    } catch (err) {
+      log.error('WeChat message handling error:', err)
+    }
+  }, 60 * 1000) // Check every minute for messages, push at configured hour
   
   // Also do an immediate check
   const settings = getSettings()

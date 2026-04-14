@@ -9,6 +9,19 @@ import path from 'node:path'
 import { app } from 'electron'
 import log from 'electron-log'
 
+// Contact interface for birthday contacts
+interface Contact {
+  id?: number
+  name: string
+  phoneNumber?: string
+  birthday: string
+  remarks?: string
+  formattedBirthday?: string
+  daysUntil?: number
+  countdownText?: string
+  isBirthdayToday?: boolean
+}
+
 // API Types (from @tencent-weixin/openclaw-weixin)
 interface QRCodeResponse {
   qrcode: string
@@ -206,8 +219,8 @@ export async function initWeChatLogin(): Promise<{ qrcode: string; textCode: str
     const textCode = qrData.qrcode
     
     // Use the qrcode field (text code) to generate QR code
-    if (qrData.qrcode) {
-      const qrImage = await generateQRCodeImage(qrData.qrcode)
+    if (qrData.qrcode_img_content) {
+      const qrImage = await generateQRCodeImage(qrData.qrcode_img_content)
       return { qrcode: qrImage, textCode }
     }
     
@@ -380,6 +393,75 @@ export async function sendTextMessage(toUserId: string, text: string, contextTok
   )
   
   log.info(`[WeChat] Message sent to ${toUserId}`)
+}
+
+// Generate birthday message for responding to user
+function generateBirthdayReplyMessage(): string {
+  // This will be replaced with actual database query in main.ts
+  // For now, return a placeholder - the actual implementation will be in the message handler
+  return '__GET_TODAY_BIRTHDAYS__'
+}
+
+// Handle incoming messages - respond to any text with today's birthday list
+export async function handleIncomingMessages(getBirthdayContacts: () => Promise<Contact[]>): Promise<void> {
+  if (!credentials) {
+    log.warn('[WeChat] Cannot handle messages - not logged in')
+    return
+  }
+  
+  try {
+    const updates = await getUpdates()
+    
+    if (updates.msgs && updates.msgs.length > 0) {
+      for (const msg of updates.msgs) {
+        // Only handle text messages from users
+        if (msg.message_type === 1 && msg.item_list) {
+          for (const item of msg.item_list) {
+            if (item.type === 1 && item.text_item?.text) {
+              const userText = item.text_item.text.trim()
+              const fromUserId = msg.from_user_id
+              const contextToken = msg.context_token
+              
+              log.info(`[WeChat] Received message from ${fromUserId}: ${userText}`)
+              
+              // Get today's birthdays and respond
+              const contacts = await getBirthdayContacts()
+              let responseMessage: string
+              
+              if (contacts.length === 0) {
+                const today = new Date()
+                const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`
+                responseMessage = `今天是 ${dateStr}，今日没有过生日的联系人。\n\n回复任意内容查看今日生日清单。`
+              } else {
+                const today = new Date()
+                const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`
+                
+                responseMessage = `🎂 今日生日提醒 (${dateStr})\n\n`
+                
+                for (const contact of contacts) {
+                  responseMessage += `• ${contact.name}`
+                  if (contact.phoneNumber) {
+                    responseMessage += ` (${contact.phoneNumber})`
+                  }
+                  if (contact.remarks) {
+                    responseMessage += `\n  备注: ${contact.remarks}`
+                  }
+                  responseMessage += '\n'
+                }
+                
+                responseMessage += `\n共 ${contacts.length} 位朋友今天生日，祝他们生日快乐！🎉`
+              }
+              
+              await sendTextMessage(fromUserId, responseMessage, contextToken)
+              log.info(`[WeChat] Sent birthday reply to ${fromUserId}`)
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    log.error('[WeChat] Error handling incoming messages:', error)
+  }
 }
 
 // Get credentials file path
