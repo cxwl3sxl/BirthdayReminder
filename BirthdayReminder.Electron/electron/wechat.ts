@@ -113,87 +113,81 @@ async function apiPost<T>(endpoint: string, body: object, token?: string, timeou
 // Get QR code for login
 async function fetchQRCode(): Promise<QRCodeResponse> {
   log.info('[WeChat] Fetching QR code...')
+  
   const url = `${BASE_URL}/ilink/bot/get_bot_qrcode?bot_type=${BOT_TYPE}`
-  const response = await fetch(url)
+  
+  // Build headers similar to API requests
+  const headers: Record<string, string> = {
+    'AuthorizationType': 'ilink_bot_token',
+    'X-WECHAT-UIN': randomWechatUin()
+  }
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers
+  })
+  
+  log.info('[WeChat] QR code response status:', response.status)
+  
+  // The API returns JSON but with content-type: application/octet-stream
+  const text = await response.text()
   
   if (!response.ok) {
+    log.error('[WeChat] QR code error:', text)
     throw new Error(`Failed to get QR code: ${response.status}`)
   }
   
-  return response.json() as Promise<QRCodeResponse>
+  try {
+    return JSON.parse(text) as QRCodeResponse
+  } catch (e) {
+    log.error('[WeChat] JSON parse error:', e)
+    throw new Error('Failed to parse QR code response')
+  }
 }
 
-// Poll QR code status until confirmed
-export async function pollQRCodeStatus(qrcode: string): Promise<WeChatCredentials> {
-  log.info('[WeChat] Polling QR code status...')
+// Generate QR code image from text code using a public API
+async function generateQRCodeImage(textCode: string): Promise<string> {
+  log.info('[WeChat] Generating QR code from text:', textCode)
   
-  let retries = 0
-  const maxRetries = 90 // 90 * 2 seconds = 3 minutes
+  // Use a public QR code generation API
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(textCode)}`
   
-  while (retries < maxRetries) {
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    const url = `${BASE_URL}/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(qrcode)}`
-    const response = await fetch(url)
-    
+  try {
+    const response = await fetch(qrApiUrl)
     if (!response.ok) {
-      retries++
-      continue
+      throw new Error(`QR API error: ${response.status}`)
     }
     
-    const status = await response.json() as QRCodeStatusResponse
+    const imageBuffer = await response.arrayBuffer()
+    const base64 = Buffer.from(imageBuffer).toString('base64')
+    log.info('[WeChat] QR code generated, length:', base64.length)
     
-    switch (status.status) {
-      case 'wait':
-        log.info('[WeChat] Waiting for scan...')
-        break
-        
-      case 'scaned':
-        log.info('[WeChat] QR code scanned, waiting for confirmation...')
-        break
-        
-      case 'expired':
-        log.warn('[WeChat] QR code expired')
-        throw new Error('二维码已过期，请重新扫码')
-        
-      case 'confirmed':
-        if (!status.bot_token || !status.ilink_bot_id) {
-          throw new Error('登录确认但未返回 token 或 bot_id')
-        }
-        
-        const creds: WeChatCredentials = {
-          token: status.bot_token,
-          baseUrl: status.baseurl || BASE_URL,
-          accountId: status.ilink_bot_id,
-          userId: status.ilink_user_id || ''
-        }
-        
-        log.info(`[WeChat] Login successful! accountId=${creds.accountId}`)
-        return creds
-        
-      default:
-        log.warn('[WeChat] Unknown status:', status.status)
-    }
-    
-    retries++
+    return `data:image/png;base64,${base64}`
+  } catch (error) {
+    log.error('[WeChat] QR generation error:', error)
+    throw error
   }
-  
-  throw new Error('扫码超时，请重新扫码')
 }
 
 // Initialize WeChat login and return QR code data URL
 export async function initWeChatLogin(): Promise<string> {
   log.info('[WeChat] Initializing login...')
   
-  const qrData = await fetchQRCode()
-  
-  // Return the QR code image data URL
-  if (qrData.qrcode_img_content) {
-    return `data:image/png;base64,${qrData.qrcode_img_content}`
+  try {
+    const qrData = await fetchQRCode()
+    log.info('[WeChat] QR data:', JSON.stringify(qrData))
+    
+    // The qrcode field contains the text code to generate QR from
+    if (qrData.qrcode) {
+      // Generate QR code image from the text code
+      return await generateQRCodeImage(qrData.qrcode)
+    }
+    
+    throw new Error('No QR code data returned')
+  } catch (error) {
+    log.error('[WeChat] initWeChatLogin error:', error)
+    throw error
   }
-  
-  // If no image, return the text code for external QR generators
-  return qrData.qrcode
 }
 
 // Complete login after QR scan
