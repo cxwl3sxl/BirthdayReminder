@@ -166,7 +166,7 @@ const styles = {
     background: 'var(--color-bg-card)',
     borderRadius: 'var(--radius-lg)',
     padding: '28px 32px',
-    marginBottom: 24,
+    marginBottom: 20,
     boxShadow: 'var(--shadow-sm)',
     border: '1px solid var(--color-border)',
     flexShrink: 0
@@ -179,7 +179,7 @@ const styles = {
   },
   headerTitle: {
     fontFamily: 'var(--font-display)',
-    fontSize: 28,
+    fontSize: 16,
     fontWeight: 600,
     color: 'var(--color-text-primary)',
     display: 'flex',
@@ -188,7 +188,7 @@ const styles = {
   },
   headerSubtitle: {
     color: 'var(--color-text-secondary)',
-    fontSize: 14,
+    fontSize: 12,
     marginTop: 4,
     fontWeight: 400
   },
@@ -635,7 +635,7 @@ function App() {
               showTotal: (total) => `共 ${total} 条记录`,
               position: ['bottomCenter']
             }}
-            scroll={{ y: 'calc(100vh - 320px)' }}
+            scroll={{ y: 'calc(100vh - 550px)' }}
             style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
           />
         </div>
