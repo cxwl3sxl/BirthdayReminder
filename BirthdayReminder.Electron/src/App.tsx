@@ -7,7 +7,8 @@ import {
   DownloadOutlined,
   UploadOutlined,
   UserOutlined,
-  CalendarOutlined
+  CalendarOutlined,
+  SearchOutlined
 } from '@ant-design/icons'
 
 // Windows 10 Style Icons (SVG)
@@ -258,7 +259,21 @@ function App() {
   const [isMaximized, setIsMaximized] = useState(false)
   const [settingsVisible, setSettingsVisible] = useState(false)
   const [settings, setSettings] = useState({ autoStart: false, reminderTime: '10:00' })
+  const [searchText, setSearchText] = useState('')
   const [form] = Form.useForm()
+
+  // Filter contacts based on search text
+  const filteredContacts = contacts.filter(contact => {
+    if (!searchText) return true
+    const search = searchText.toLowerCase()
+    return (
+      contact.name?.toLowerCase().includes(search) ||
+      contact.phoneNumber?.toLowerCase().includes(search) ||
+      contact.birthday?.toLowerCase().includes(search) ||
+      contact.formattedBirthday?.toLowerCase().includes(search) ||
+      contact.remarks?.toLowerCase().includes(search)
+    )
+  })
 
   useEffect(() => {
     loadContacts()
@@ -589,11 +604,28 @@ function App() {
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center' }}>
+          <Input
+            placeholder="搜索姓名、手机号、生日、备注..."
+            prefix={<SearchOutlined style={{ color: '#999' }} />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+            style={{ maxWidth: 300 }}
+          />
+          {searchText && (
+            <span style={{ marginLeft: 12, color: 'var(--color-text-secondary)', fontSize: 13 }}>
+              找到 {filteredContacts.length} 条结果
+            </span>
+          )}
+        </div>
+
         {/* Table Card */}
         <div style={styles.tableCard} className="fade-in-up stagger-1">
           <Table
             columns={columns}
-            dataSource={contacts}
+            dataSource={filteredContacts}
             rowKey="id"
             loading={loading}
             size="small"
