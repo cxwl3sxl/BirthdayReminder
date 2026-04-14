@@ -16,11 +16,12 @@ interface QRCodeResponse {
 }
 
 interface QRCodeStatusResponse {
-  status: 'wait' | 'scaned' | 'expired' | 'confirmed'
+  status: 'wait' | 'scaned' | 'expired' | 'confirmed' | 'scaned_but_redirect' | string
   bot_token?: string
   ilink_bot_id?: string
   ilink_user_id?: string
   baseurl?: string
+  redirect_host?: string
 }
 
 interface GetUpdatesReq {
@@ -59,7 +60,8 @@ interface SendMessageReq {
 
 // Constants
 const BASE_URL = 'https://ilinkai.weixin.qq.com'
-const BOT_TYPE = 3
+const BOT_TYPE = '3'
+const ILINK_APP_ID = 'bot'
 
 // Credentials interface
 export interface WeChatCredentials {
@@ -80,12 +82,24 @@ function randomWechatUin(): string {
   return buf.toString('base64')
 }
 
-// Helper: Build common headers
-function buildHeaders(token?: string): Record<string, string> {
+// Helper: Build common headers for GET requests (QR code, status polling)
+function buildGetHeaders(): Record<string, string> {
+  return {
+    'AuthorizationType': 'ilink_bot_token',
+    'X-WECHAT-UIN': randomWechatUin(),
+    'iLink-App-Id': ILINK_APP_ID,
+    'iLink-App-ClientVersion': '65547' // 1.0.11 encoded
+  }
+}
+
+// Helper: Build common headers for POST requests
+function buildPostHeaders(token?: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'AuthorizationType': 'ilink_bot_token',
-    'X-WECHAT-UIN': randomWechatUin()
+    'X-WECHAT-UIN': randomWechatUin(),
+    'iLink-App-Id': ILINK_APP_ID,
+    'iLink-App-ClientVersion': '65547'
   }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
@@ -93,12 +107,29 @@ function buildHeaders(token?: string): Record<string, string> {
   return headers
 }
 
+// Helper: GET request to iLink API
+async function apiGet<T>(endpoint: string, timeoutMs = 30000): Promise<T> {
+  const url = `${BASE_URL}/ilink/bot/${endpoint}`
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: buildGetHeaders(),
+    signal: AbortSignal.timeout(timeoutMs)
+  })
+  
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+  }
+  
+  const text = await response.text()
+  return JSON.parse(text) as T
+}
+
 // Helper: POST request to iLink API
 async function apiPost<T>(endpoint: string, body: object, token?: string, timeoutMs = 30000): Promise<T> {
   const url = `${BASE_URL}/ilink/bot/${endpoint}`
   const response = await fetch(url, {
     method: 'POST',
-    headers: buildHeaders(token),
+    headers: buildPostHeaders(token),
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs)
   })
@@ -114,17 +145,11 @@ async function apiPost<T>(endpoint: string, body: object, token?: string, timeou
 async function fetchQRCode(): Promise<QRCodeResponse> {
   log.info('[WeChat] Fetching QR code...')
   
-  const url = `${BASE_URL}/ilink/bot/get_bot_qrcode?bot_type=${BOT_TYPE}`
-  
-  // Build headers similar to API requests
-  const headers: Record<string, string> = {
-    'AuthorizationType': 'ilink_bot_token',
-    'X-WECHAT-UIN': randomWechatUin()
-  }
+  const url = `${BASE_URL}/ilink/bot/get_bot_qrcode?bot_type=${encodeURIComponent(BOT_TYPE)}`
   
   const response = await fetch(url, {
     method: 'GET',
-    headers
+    headers: buildGetHeaders()
   })
   
   log.info('[WeChat] QR code response status:', response.status)
@@ -177,10 +202,11 @@ export async function initWeChatLogin(): Promise<string> {
     const qrData = await fetchQRCode()
     log.info('[WeChat] QR data:', JSON.stringify(qrData))
     
-    // The qrcode field contains the text code to generate QR from
-    if (qrData.qrcode) {
-      // Generate QR code image from the text code
-      return await generateQRCodeImage(qrData.qrcode)
+    // Use the qrcode field (text code) to generate QR code
+    // The qrcode_img_content URL may require authentication headers
+    if (qrData.qrcode_img_content) {
+      log.info('[WeChat] Generating QR from text code:', qrData.qrcode_img_content)
+      return await generateQRCodeImage(qrData.qrcode_img_content)
     }
     
     throw new Error('No QR code data returned')
@@ -188,6 +214,72 @@ export async function initWeChatLogin(): Promise<string> {
     log.error('[WeChat] initWeChatLogin error:', error)
     throw error
   }
+}
+
+// Poll QR code status until confirmed (with long poll support)
+async function pollQRCodeStatus(qrcode: string): Promise<WeChatCredentials> {
+  log.info('[WeChat] Polling QR code status with qrcode:', qrcode)
+  
+  let retries = 0
+  const maxRetries = 90 // 90 * 2 seconds = 3 minutes
+  const longPollTimeout = 35000 // 35 seconds
+  
+  while (retries < maxRetries) {
+    try {
+      const status = await apiGet<QRCodeStatusResponse>(
+        `get_qrcode_status?qrcode=${encodeURIComponent(qrcode)}`,
+        longPollTimeout
+      )
+      
+      log.info('[WeChat] QR status response:', JSON.stringify(status))
+      
+      // Check for confirmed status (also check for bot_token which indicates success)
+      if (status.status === 'confirmed' || status.bot_token) {
+        if (!status.bot_token || !status.ilink_bot_id) {
+          throw new Error('登录确认但未返回 token 或 bot_id')
+        }
+        
+        const creds: WeChatCredentials = {
+          token: status.bot_token,
+          baseUrl: status.baseurl || BASE_URL,
+          accountId: status.ilink_bot_id,
+          userId: status.ilink_user_id || ''
+        }
+        
+        log.info(`[WeChat] Login successful! accountId=${creds.accountId}`)
+        return creds
+      }
+      
+      // Check for expired
+      if (status.status === 'expired') {
+        log.warn('[WeChat] QR code expired')
+        throw new Error('二维码已过期，请重新扫码')
+      }
+      
+      // Log current status
+      if (status.status === 'wait') {
+        log.info('[WeChat] Waiting for scan...')
+      } else if (status.status === 'scaned') {
+        log.info('[WeChat] QR code scanned, waiting for confirmation...')
+      } else {
+        log.info('[WeChat] Status:', status.status)
+      }
+      
+    } catch (err) {
+      // Timeout is normal for long poll
+      if (err instanceof Error && err.name === 'TimeoutError') {
+        log.debug('[WeChat] Long poll timeout, continuing...')
+      } else {
+        log.warn('[WeChat] Poll error:', err)
+      }
+    }
+    
+    retries++
+    // Brief pause between polls
+    await new Promise(resolve => setTimeout(resolve, 2000))
+  }
+  
+  throw new Error('扫码超时，请重新扫码')
 }
 
 // Complete login after QR scan

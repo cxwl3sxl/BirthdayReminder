@@ -377,20 +377,17 @@ function App() {
       if (result.success && result.qrcode) {
         setWechatQRCode(result.qrcode)
         
-        // Poll for login completion
-        const pollLogin = setInterval(async () => {
-          const status = await window.electronAPI.wechatGetStatus()
-          if (status.bound) {
-            clearInterval(pollLogin)
-            setWechatLoginComplete(true)
-            setWechatUserId(status.userId || null)
-          }
-        }, 2000)
+        // Call wechatCompleteLogin to start polling QR status in background
+        // This will poll until confirmed or timeout
+        const loginResult = await window.electronAPI.wechatCompleteLogin(result.qrcode)
         
-        // Stop polling after 3 minutes
-        setTimeout(() => {
-          clearInterval(pollLogin)
-        }, 180000)
+        if (loginResult.success) {
+          setWechatLoginComplete(true)
+          setWechatUserId(loginResult.userId || null)
+          message.success('微信绑定成功')
+        } else {
+          message.error(loginResult.error || '登录失败')
+        }
       } else {
         message.error(result.error || '获取二维码失败')
       }
