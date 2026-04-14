@@ -3,6 +3,7 @@ import path from 'path'
 import log from 'electron-log'
 import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays, getContactsInDays } from './database'
 import { importExcel, exportExcel } from './excel'
+import { getSettings, setAutoStart, setReminderTime } from './settings'
 
 // Configure logging
 log.transports.file.level = 'info'
@@ -13,7 +14,7 @@ log.info('Application starting...')
 let mainWindow: BrowserWindow | null = null
 let listWindow: BrowserWindow | null = null
 let tray: Tray | null = null
-let reminderInterval: NodeJS.Timeout | null = null
+let reminderTimer: NodeJS.Timeout | null = null
 
 // Environment
 const isDev = !app.isPackaged
@@ -230,16 +231,44 @@ const showTodayBirthdaysNotification = async () => {
   }
 }
 
-// Start reminder check
+// Check and show today's birthday notification
+const checkTodayBirthdays = async () => {
+  const todayBirthdays = await getTodayBirthdays()
+  if (todayBirthdays.length > 0) {
+    const names = todayBirthdays.map(c => c.name).join('、')
+    showNotification(`生日提醒 - 今日有 ${todayBirthdays.length} 位生日！`, names)
+  }
+}
+
+// Start reminder check with configurable time
 const startReminder = () => {
   log.info('Starting birthday reminder check...')
-  reminderInterval = setInterval(async () => {
-    const todayBirthdays = await getTodayBirthdays()
-    if (todayBirthdays.length > 0) {
-      const names = todayBirthdays.map(c => c.name).join('、')
-      showNotification(`生日提醒 - 今日有 ${todayBirthdays.length} 位生日！`, names)
+  
+  const checkAndSchedule = () => {
+    const settings = getSettings()
+    const [hours, minutes] = settings.reminderTime.split(':').map(Number)
+    const now = new Date()
+    const targetTime = new Date(now)
+    targetTime.setHours(hours, minutes, 0, 0)
+    
+    // If target time is in the past, schedule for tomorrow
+    if (targetTime <= now) {
+      targetTime.setDate(targetTime.getDate() + 1)
     }
-  }, 60 * 60 * 1000)
+    
+    const delay = targetTime.getTime() - now.getTime()
+    
+    log.info(`Next birthday check scheduled in ${Math.round(delay / 1000 / 60)} minutes`)
+    
+    if (reminderTimer) clearTimeout(reminderTimer)
+    reminderTimer = setTimeout(async () => {
+      await checkTodayBirthdays()
+      checkAndSchedule() // Reschedule for next day
+    }, delay)
+  }
+  
+  // Initial check
+  checkAndSchedule()
 }
 
 // IPC Handlers
@@ -291,6 +320,13 @@ const setupIPC = () => {
   // List window controls
   ipcMain.handle('list-window-minimize', () => listWindow?.minimize())
   ipcMain.handle('list-window-close', () => listWindow?.close())
+  // Settings
+  ipcMain.handle('get-settings', () => getSettings())
+  ipcMain.handle('set-auto-start', (_, enabled: boolean) => setAutoStart(enabled))
+  ipcMain.handle('set-reminder-time', (_, time: string) => {
+    setReminderTime(time)
+    startReminder() // Restart with new time
+  })
 }
 
 // App ready
@@ -322,7 +358,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true
-  if (reminderInterval) clearInterval(reminderInterval)
+  if (reminderTimer) clearTimeout(reminderTimer)
 })
 
 declare module 'electron' {

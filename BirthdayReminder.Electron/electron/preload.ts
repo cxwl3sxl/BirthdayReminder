@@ -36,5 +36,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOpenSettings: (callback: () => void) => {
     ipcRenderer.on('open-settings', callback)
     return () => ipcRenderer.removeListener('open-settings', callback)
-  }
+  },
+  // Settings
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  setAutoStart: (enabled: boolean) => ipcRenderer.invoke('set-auto-start', enabled),
+  setReminderTime: (time: string) => ipcRenderer.invoke('set-reminder-time', time)
 })

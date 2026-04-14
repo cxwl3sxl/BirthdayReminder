@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Space, Modal, Form, Input, DatePicker, message, Dropdown, Popconfirm } from 'antd'
+import { Table, Button, Space, Modal, Form, Input, DatePicker, message, Dropdown, Popconfirm, Switch, TimePicker } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import {
@@ -72,6 +72,9 @@ declare global {
       onLoadBirthdayList: (callback: (type: string) => void) => () => void
       onContactsUpdated: (callback: () => void) => () => void
       onOpenSettings: (callback: () => void) => () => void
+      getSettings: () => Promise<{ autoStart: boolean; reminderTime: string }>
+      setAutoStart: (enabled: boolean) => Promise<void>
+      setReminderTime: (time: string) => Promise<void>
     }
   }
 }
@@ -253,11 +256,14 @@ function App() {
   const [modalVisible, setModalVisible] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [isMaximized, setIsMaximized] = useState(false)
+  const [settingsVisible, setSettingsVisible] = useState(false)
+  const [settings, setSettings] = useState({ autoStart: false, reminderTime: '10:00' })
   const [form] = Form.useForm()
 
   useEffect(() => {
     loadContacts()
     checkMaximized()
+    loadSettings()
     
     // Listen for notification click to show today's birthdays
     const cleanup = window.electronAPI.onShowTodayBirthdays(() => {
@@ -273,7 +279,7 @@ function App() {
     
     // Listen for open settings from tray
     const cleanupSettings = window.electronAPI.onOpenSettings(() => {
-      message.info('设置功能开发中')
+      setSettingsVisible(true)
     })
     
     return () => {
@@ -282,6 +288,15 @@ function App() {
       cleanupSettings()
     }
   }, [])
+
+  const loadSettings = async () => {
+    try {
+      const s = await window.electronAPI.getSettings()
+      setSettings(s)
+    } catch (error) {
+      console.error('Failed to load settings:', error)
+    }
+  }
 
   const checkMaximized = async () => {
     const maximized = await window.electronAPI.windowIsMaximized()
@@ -386,7 +401,7 @@ function App() {
     { key: 'import', label: '导入Excel', icon: <DownloadOutlined />, onClick: handleImport },
     { key: 'export', label: '导出Excel', icon: <UploadOutlined />, onClick: handleExport },
     { type: 'divider' as const },
-    { key: 'settings', label: '设置', onClick: () => message.info('设置功能开发中') }
+    { key: 'settings', label: '设置', onClick: () => setSettingsVisible(true) }
   ]
 
   const todayCount = contacts.filter(c => c.isBirthdayToday).length
@@ -629,6 +644,51 @@ function App() {
               <Input.TextArea rows={3} placeholder="备注信息" />
             </Form.Item>
           </Form>
+        </Modal>
+
+        {/* Settings Modal */}
+        <Modal
+          title="设置"
+          open={settingsVisible}
+          onCancel={() => setSettingsVisible(false)}
+          footer={null}
+          centered
+        >
+          <div style={{ padding: '20px 0' }}>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontWeight: 500, marginBottom: 8 }}>开机启动</div>
+              <Switch
+                checked={settings.autoStart}
+                onChange={async (checked) => {
+                  await window.electronAPI.setAutoStart(checked)
+                  setSettings({ ...settings, autoStart: checked })
+                  message.success(checked ? '已开启开机启动' : '已关闭开机启动')
+                }}
+              />
+              <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
+                开机自动启动生日提醒应用
+              </div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 500, marginBottom: 8 }}>每日提醒时间</div>
+              <TimePicker
+                format="HH:mm"
+                value={dayjs(settings.reminderTime, 'HH:mm')}
+                onChange={async (time) => {
+                  if (time) {
+                    const timeStr = time.format('HH:mm')
+                    await window.electronAPI.setReminderTime(timeStr)
+                    setSettings({ ...settings, reminderTime: timeStr })
+                    message.success(`提醒时间已设置为 ${timeStr}`)
+                  }
+                }}
+                style={{ width: 120 }}
+              />
+              <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
+                每天定时提醒当日生日联系人
+              </div>
+            </div>
+          </div>
         </Modal>
       </div>
     </div>

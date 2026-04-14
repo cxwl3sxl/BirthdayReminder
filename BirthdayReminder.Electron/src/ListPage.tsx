@@ -46,6 +46,9 @@ declare global {
       onLoadBirthdayList: (callback: (type: string) => void) => () => void
       onContactsUpdated: (callback: () => void) => () => void
       onOpenSettings: (callback: () => void) => () => void
+      getSettings: () => Promise<{ autoStart: boolean; reminderTime: string }>
+      setAutoStart: (enabled: boolean) => Promise<void>
+      setReminderTime: (time: string) => Promise<void>
     }
   }
 }
