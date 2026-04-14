@@ -3,48 +3,53 @@ import { Contact } from './database'
 import { getContacts } from './database'
 import log from 'electron-log'
 
-// Helper to convert Excel serial date number to Date
-const excelSerialToDate = (serial: number): Date | null => {
-  // Excel serial date: days since 1899-12-30
-  // But there's an offset issue, typical formula: new Date(Math.round((serial - 25569) * 86400 * 1000))
-  try {
-    const utc_days = Math.floor(serial - 25569)
-    const utc_value = utc_days * 86400
-    const date_info = new Date(utc_value * 1000)
-    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate())
-  } catch (e) {
-    log.error('Error converting serial date:', e)
-    return null
-  }
-}
-
-// Helper to parse birthday value from various formats
-const parseBirthday = (value: any): string | null => {
+// Helper to parse birthday value - only supports MM/DD and YYYY/MM/DD formats
+const parseBirthday = (value: any, defaultYear: number = new Date().getFullYear()): string | null => {
   if (!value) return null
   
   // Date object
-  if (value instanceof Date) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
     return value.toISOString().split('T')[0]
   }
   
-  // Excel serial date (number)
+  // Excel serial date (number) - days since 1899-12-30
   if (typeof value === 'number') {
-    const date = excelSerialToDate(value)
-    if (date) return date.toISOString().split('T')[0]
+    try {
+      const utc_days = Math.floor(value - 25569)
+      const utc_value = utc_days * 86400
+      const date_info = new Date(utc_value * 1000)
+      if (!isNaN(date_info.getTime())) {
+        return date_info.toISOString().split('T')[0]
+      }
+    } catch (e) {
+      log.error('Error converting serial date:', e)
+    }
     return null
   }
   
-  // String format
+  // String format - only MM/DD and YYYY/MM/DD
   if (typeof value === 'string') {
-    // Try YYYY-MM-DD or YYYY/MM/DD
-    const match = value.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
-    if (match) {
-      return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`
+    const trimmed = value.trim()
+    
+    // Try YYYY/MM/DD or YYYY-MM-DD
+    const matchFull = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/)
+    if (matchFull) {
+      const year = parseInt(matchFull[1])
+      const month = parseInt(matchFull[2])
+      const day = parseInt(matchFull[3])
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+      }
     }
-    // Try MM/DD/YYYY
-    const match2 = value.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/)
-    if (match2) {
-      return `${match2[3]}-${match2[1].padStart(2, '0')}-${match2[2].padStart(2, '0')}`
+    
+    // Try MM/DD (use current year)
+    const matchMonthDay = trimmed.match(/^(\d{1,2})[-/](\d{1,2})$/)
+    if (matchMonthDay) {
+      const month = parseInt(matchMonthDay[1])
+      const day = parseInt(matchMonthDay[2])
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        return `${defaultYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+      }
     }
   }
   
