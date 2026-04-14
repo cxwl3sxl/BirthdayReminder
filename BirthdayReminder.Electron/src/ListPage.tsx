@@ -44,6 +44,8 @@ declare global {
       listWindowClose: () => Promise<void>
       onShowTodayBirthdays: (callback: () => void) => () => void
       onLoadBirthdayList: (callback: (type: string) => void) => () => void
+      onContactsUpdated: (callback: () => void) => () => void
+      onOpenSettings: (callback: () => void) => () => void
     }
   }
 }

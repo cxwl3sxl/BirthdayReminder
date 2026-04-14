@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, Notification, dialog, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, Tray, Menu, Notification, dialog, screen, nativeImage } from 'electron'
 import path from 'path'
 import log from 'electron-log'
 import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays, getContactsInDays } from './database'
@@ -33,6 +33,9 @@ const createListWindow = (type: 'today' | 'upcoming') => {
   
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+  const iconPath = app.isPackaged 
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(__dirname, '../icon.png')
   
   listWindow = new BrowserWindow({
     width: 600,
@@ -40,6 +43,7 @@ const createListWindow = (type: 'today' | 'upcoming') => {
     x: Math.round((screenWidth - 600) / 2),
     y: Math.round((screenHeight - 500) / 2),
     title: type === 'today' ? '今日生日' : '即将生日',
+    icon: iconPath,
     frame: false,
     resizable: true,
     webPreferences: {
@@ -70,12 +74,17 @@ const createListWindow = (type: 'today' | 'upcoming') => {
 const createWindow = () => {
   log.info('Creating main window...')
   
+  const iconPath = app.isPackaged 
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(__dirname, '../icon.png')
+  
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
     minWidth: 800,
     minHeight: 600,
     title: '生日提醒',
+    icon: iconPath,
     frame: false,
     webPreferences: {
       preload: getPreloadPath(),
@@ -113,37 +122,17 @@ const createWindow = () => {
 const createTray = () => {
   log.info('Creating system tray...')
   
-  // Create a simple 16x16 icon programmatically
-  const { nativeImage } = require('electron')
+  const iconPath = app.isPackaged 
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(__dirname, '../icon.png')
+  const icon = nativeImage.createFromPath(iconPath)
   
-  // Create a simple cake icon using nativeImage
-  const iconSize = 16
-  const iconBuffer = Buffer.alloc(iconSize * iconSize * 4)
-  
-  // Fill with a simple pattern (cake-like shape)
-  for (let y = 0; y < iconSize; y++) {
-    for (let x = 0; x < iconSize; x++) {
-      const idx = (y * iconSize + x) * 4
-      // Create a simple colored square
-      if (y >= 4 && y <= 14 && x >= 2 && x <= 13) {
-        // Cake body - coral color
-        iconBuffer[idx] = 224     // R
-        iconBuffer[idx + 1] = 122  // G
-        iconBuffer[idx + 2] = 95   // B
-        iconBuffer[idx + 3] = 255 // A
-      } else {
-        // Transparent
-        iconBuffer[idx] = 0
-        iconBuffer[idx + 1] = 0
-        iconBuffer[idx + 2] = 0
-        iconBuffer[idx + 3] = 0
-      }
-    }
+  if (icon.isEmpty()) {
+    log.warn('Tray icon is empty, using default')
+    return
   }
   
-  const icon = nativeImage.createFromBuffer(iconBuffer, { width: iconSize, height: iconSize })
-  
-  tray = new Tray(icon)
+  tray = new Tray(icon.resize({ width: 16, height: 16 }))
   tray.setToolTip('生日提醒')
   
   const contextMenu = Menu.buildFromTemplate([
@@ -237,7 +226,7 @@ const showTodayBirthdaysNotification = async () => {
   const todayBirthdays = await getTodayBirthdays()
   if (todayBirthdays.length > 0) {
     const names = todayBirthdays.map(c => c.name).join('、')
-    showNotification(`🎂 今日有 ${todayBirthdays.length} 位生日！`, names)
+    showNotification(`生日提醒 - 今日有 ${todayBirthdays.length} 位生日！`, names)
   }
 }
 
@@ -248,7 +237,7 @@ const startReminder = () => {
     const todayBirthdays = await getTodayBirthdays()
     if (todayBirthdays.length > 0) {
       const names = todayBirthdays.map(c => c.name).join('、')
-      showNotification(`🎂 今日有 ${todayBirthdays.length} 位生日！`, names)
+      showNotification(`生日提醒 - 今日有 ${todayBirthdays.length} 位生日！`, names)
     }
   }, 60 * 60 * 1000)
 }
