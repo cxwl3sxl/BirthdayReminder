@@ -12,7 +12,8 @@ import {
   SearchOutlined,
   WechatOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined
+  CloseCircleOutlined,
+  ScanOutlined
 } from '@ant-design/icons'
 
 // Windows 10 Style Icons (SVG)
@@ -275,6 +276,7 @@ function App() {
   const [wechatModalVisible, setWechatModalVisible] = useState(false)
   const [wechatQRCode, setWechatQRCode] = useState<string | null>(null)
   const [wechatLoginComplete, setWechatLoginComplete] = useState(false)
+  const [wechatQRExpired, setWechatQRExpired] = useState(false)
   const [wechatUserId, setWechatUserId] = useState<string | null>(null)
   const [wechatStatus, setWechatStatus] = useState<{ bound: boolean; userId?: string }>({ bound: false, userId: undefined })
 
@@ -370,12 +372,14 @@ function App() {
   const startWeChatLogin = async () => {
     setWechatQRCode(null)
     setWechatLoginComplete(false)
+    setWechatQRExpired(false)
     setWechatUserId(null)
     
     try {
       const result = await window.electronAPI.wechatInitLogin()
       if (result.success && result.qrcode) {
         setWechatQRCode(result.qrcode)
+        setWechatQRExpired(false)
         
         // Call wechatCompleteLogin to start polling QR status in background
         // This will poll until confirmed or timeout
@@ -386,7 +390,14 @@ function App() {
           setWechatUserId(loginResult.userId || null)
           message.success('微信绑定成功')
         } else {
-          message.error(loginResult.error || '登录失败')
+          // Check if it's an expiration error
+          const errorMsg = loginResult.error || ''
+          if (errorMsg.includes('过期') || errorMsg.includes('超时')) {
+            setWechatQRExpired(true)
+            message.warning('二维码已过期，请刷新')
+          } else {
+            message.error(loginResult.error || '登录失败')
+          }
         }
       } else {
         message.error(result.error || '获取二维码失败')
@@ -890,10 +901,25 @@ function App() {
                   style={{ width: 250, height: 250, border: '1px solid #eee' }}
                 />
                 <div style={{ marginTop: 16, color: '#666' }}>
-                  请使用微信扫描二维码并在手机上确认授权
+                  {wechatQRExpired ? (
+                    <span style={{ color: '#ff4d4f' }}>二维码已过期</span>
+                  ) : (
+                    '请使用微信扫描二维码并在手机上确认授权'
+                  )}
                 </div>
                 <div style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
-                  二维码有效期3分钟，请尽快完成
+                  {wechatQRExpired ? (
+                    <Button 
+                      type="primary" 
+                      icon={<ScanOutlined />}
+                      onClick={startWeChatLogin}
+                      style={{ marginTop: 8 }}
+                    >
+                      刷新二维码
+                    </Button>
+                  ) : (
+                    '二维码有效期3分钟，请尽快完成'
+                  )}
                 </div>
               </div>
             ) : (
