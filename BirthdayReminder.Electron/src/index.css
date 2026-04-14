@@ -7,40 +7,40 @@
   --color-primary: #E07A5F;
   --color-primary-dark: #C86045;
   --color-primary-light: #F2A992;
-  
+
   /* Accent Colors */
   --color-accent: #F4D35E;
   --color-accent-dark: #D4B43E;
-  
+
   /* Background Colors */
   --color-bg-primary: #FDF8F3;
   --color-bg-secondary: #FFF9F0;
   --color-bg-card: #FFFFFF;
-  
+
   /* Text Colors */
   --color-text-primary: #3D405B;
   --color-text-secondary: #6B6E85;
   --color-text-muted: #9898A6;
-  
+
   /* Border & Shadow */
   --color-border: #F0E6DD;
   --shadow-sm: 0 2px 8px rgba(61, 64, 91, 0.06);
   --shadow-md: 0 4px 16px rgba(61, 64, 91, 0.1);
   --shadow-lg: 0 8px 32px rgba(61, 64, 91, 0.15);
-  
+
   /* Title Bar */
   --titlebar-bg: linear-gradient(135deg, #3D405B 0%, #5C5F7A 100%);
   --titlebar-height: 48px;
-  
+
   /* Typography */
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'Quicksand', -apple-system, sans-serif;
-  
+
   /* Border Radius */
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 20px;
-  
+
   /* Transitions */
   --transition-fast: 0.15s ease;
   --transition-normal: 0.3s ease;
@@ -89,7 +89,7 @@ body {
   font-family: var(--font-body);
 }
 
-.ant-table-thead > tr > th {
+.ant-table-thead>tr>th {
   background: var(--color-bg-secondary) !important;
   font-family: var(--font-display);
   font-weight: 600;
@@ -97,7 +97,7 @@ body {
   white-space: nowrap;
 }
 
-.ant-table-tbody > tr > td {
+.ant-table-tbody>tr>td {
   white-space: nowrap;
 }
 
@@ -167,6 +167,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -177,6 +178,7 @@ body {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -186,6 +188,29 @@ body {
   animation: fadeInUp 0.5s ease forwards;
 }
 
-.stagger-1 { animation-delay: 0.1s; }
-.stagger-2 { animation-delay: 0.2s; }
-.stagger-3 { animation-delay: 0.3s; }
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+
+.ant-table-wrapper>div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.ant-table-wrapper div .ant-spin-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
