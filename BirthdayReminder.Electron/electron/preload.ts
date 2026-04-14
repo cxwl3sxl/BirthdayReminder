@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // WeChat
   wechatInitLogin: () => ipcRenderer.invoke('wechat-init-login'),
   wechatCompleteLogin: (qrcode: string) => ipcRenderer.invoke('wechat-complete-login', qrcode),
+  wechatCancelLogin: () => ipcRenderer.invoke('wechat-cancel-login'),
   wechatGetStatus: () => ipcRenderer.invoke('wechat-get-status'),
   wechatUnbind: () => ipcRenderer.invoke('wechat-unbind'),
   wechatTestSend: () => ipcRenderer.invoke('wechat-test-send')

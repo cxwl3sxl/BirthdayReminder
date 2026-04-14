@@ -82,8 +82,8 @@ declare global {
       setAutoStart: (enabled: boolean) => Promise<void>
       setReminderTime: (time: string) => Promise<void>
       // WeChat
-      wechatInitLogin: () => Promise<{ success: boolean; qrcode?: string; error?: string }>
-      wechatCompleteLogin: (qrcode: string) => Promise<{ success: boolean; userId?: string; error?: string }>
+      wechatInitLogin: () => Promise<{ success: boolean; qrcode?: string; textCode?: string; error?: string }>
+      wechatCompleteLogin: (qrcode: string) => Promise<{ success: boolean; userId?: string; error?: string; expired?: boolean }>
       wechatGetStatus: () => Promise<{ bound: boolean; userId?: string }>
       wechatUnbind: () => Promise<{ success: boolean }>
       wechatTestSend: () => Promise<{ success: boolean; message?: string; error?: string }>
@@ -381,23 +381,23 @@ function App() {
         setWechatQRCode(result.qrcode)
         setWechatQRExpired(false)
         
-        // Call wechatCompleteLogin to start polling QR status in background
-        // This will poll until confirmed or timeout
-        const loginResult = await window.electronAPI.wechatCompleteLogin(result.qrcode)
+        // Call wechatCompleteLogin with the textCode (not the QR image) to start polling
+        const loginResult = await window.electronAPI.wechatCompleteLogin(result.textCode || '')
         
         if (loginResult.success) {
+          // Binding successful - close modal and update status
           setWechatLoginComplete(true)
           setWechatUserId(loginResult.userId || null)
+          setWechatModalVisible(false)
+          setWechatStatus({ bound: true, userId: loginResult.userId || '' })
           message.success('微信绑定成功')
+        } else if (loginResult.expired) {
+          // QR code expired - show refresh button
+          setWechatQRExpired(true)
+          message.warning('二维码已过期，请刷新')
         } else {
-          // Check if it's an expiration error
-          const errorMsg = loginResult.error || ''
-          if (errorMsg.includes('过期') || errorMsg.includes('超时')) {
-            setWechatQRExpired(true)
-            message.warning('二维码已过期，请刷新')
-          } else {
-            message.error(loginResult.error || '登录失败')
-          }
+          // Other error
+          message.error(loginResult.error || '登录失败')
         }
       } else {
         message.error(result.error || '获取二维码失败')
@@ -882,7 +882,10 @@ function App() {
         <Modal
           title="微信扫码绑定"
           open={wechatModalVisible}
-          onCancel={() => setWechatModalVisible(false)}
+          onCancel={() => {
+            window.electronAPI.wechatCancelLogin()
+            setWechatModalVisible(false)
+          }}
           footer={null}
           centered
           width={400}

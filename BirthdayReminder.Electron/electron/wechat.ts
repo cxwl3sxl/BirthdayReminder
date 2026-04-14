@@ -194,19 +194,21 @@ async function generateQRCodeImage(textCode: string): Promise<string> {
   }
 }
 
-// Initialize WeChat login and return QR code data URL
-export async function initWeChatLogin(): Promise<string> {
+// Initialize WeChat login and return QR code data URL and text code
+export async function initWeChatLogin(): Promise<{ qrcode: string; textCode: string }> {
   log.info('[WeChat] Initializing login...')
   
   try {
     const qrData = await fetchQRCode()
     log.info('[WeChat] QR data:', JSON.stringify(qrData))
     
+    // Save the original text code for polling
+    const textCode = qrData.qrcode
+    
     // Use the qrcode field (text code) to generate QR code
-    // The qrcode_img_content URL may require authentication headers
-    if (qrData.qrcode_img_content) {
-      log.info('[WeChat] Generating QR from text code:', qrData.qrcode_img_content)
-      return await generateQRCodeImage(qrData.qrcode_img_content)
+    if (qrData.qrcode) {
+      const qrImage = await generateQRCodeImage(qrData.qrcode)
+      return { qrcode: qrImage, textCode }
     }
     
     throw new Error('No QR code data returned')
@@ -216,20 +218,33 @@ export async function initWeChatLogin(): Promise<string> {
   }
 }
 
-// Poll QR code status until confirmed (with long poll support)
-async function pollQRCodeStatus(qrcode: string): Promise<WeChatCredentials> {
+// Poll QR code status until confirmed (with long poll support and abort signal)
+async function pollQRCodeStatus(qrcode: string, signal?: AbortSignal): Promise<WeChatCredentials> {
   log.info('[WeChat] Polling QR code status with qrcode:', qrcode)
   
   let retries = 0
   const maxRetries = 90 // 90 * 2 seconds = 3 minutes
   const longPollTimeout = 35000 // 35 seconds
   
+  // Create a combined signal that checks both external abort and internal
+  const checkAbort = () => {
+    if (signal?.aborted) {
+      throw new Error('取消扫码')
+    }
+  }
+  
   while (retries < maxRetries) {
+    // Check abort before each poll
+    checkAbort()
+    
     try {
       const status = await apiGet<QRCodeStatusResponse>(
         `get_qrcode_status?qrcode=${encodeURIComponent(qrcode)}`,
         longPollTimeout
       )
+      
+      // Check abort after each response
+      checkAbort()
       
       log.info('[WeChat] QR status response:', JSON.stringify(status))
       
@@ -266,9 +281,14 @@ async function pollQRCodeStatus(qrcode: string): Promise<WeChatCredentials> {
       }
       
     } catch (err) {
+      // Check abort on error
+      checkAbort()
+      
       // Timeout is normal for long poll
       if (err instanceof Error && err.name === 'TimeoutError') {
         log.debug('[WeChat] Long poll timeout, continuing...')
+      } else if (err instanceof Error && err.message === '取消扫码') {
+        throw err
       } else {
         log.warn('[WeChat] Poll error:', err)
       }
@@ -282,12 +302,31 @@ async function pollQRCodeStatus(qrcode: string): Promise<WeChatCredentials> {
   throw new Error('扫码超时，请重新扫码')
 }
 
-// Complete login after QR scan
-export async function completeWeChatLogin(qrcode: string): Promise<WeChatCredentials> {
-  const creds = await pollQRCodeStatus(qrcode)
-  credentials = creds
-  saveCredentials(creds)
-  return creds
+// Complete login after QR scan - returns detailed status
+export async function completeWeChatLogin(qrcode: string, signal?: AbortSignal): Promise<{ success: boolean; userId?: string; error?: string; expired?: boolean }> {
+  try {
+    const creds = await pollQRCodeStatus(qrcode, signal)
+    credentials = creds
+    saveCredentials(creds)
+    return { success: true, userId: creds.userId }
+  } catch (error) {
+    // If aborted, don't return error - just return cancelled
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { success: false, error: '已取消', expired: false }
+    }
+    const errorMsg = (error as Error).message || ''
+    const isExpired = errorMsg.includes('过期')
+    return { 
+      success: false, 
+      error: errorMsg || '登录失败',
+      expired: isExpired
+    }
+  }
+}
+
+// Export a version with abort support for the main process
+export async function completeWeChatLoginWithAbort(qrcode: string, abortSignal?: AbortSignal): Promise<{ success: boolean; userId?: string; error?: string; expired?: boolean }> {
+  return completeWeChatLogin(qrcode, abortSignal)
 }
 
 // GetUpdates - long poll for new messages

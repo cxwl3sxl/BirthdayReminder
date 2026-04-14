@@ -17,6 +17,7 @@ let listWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let reminderTimer: NodeJS.Timeout | null = null
 let wechatPushTimer: NodeJS.Timeout | null = null
+let wechatLoginAbortController: AbortController | null = null
 
 // Environment
 const isDev = !app.isPackaged
@@ -415,22 +416,31 @@ const setupIPC = () => {
   // WeChat handlers
   ipcMain.handle('wechat-init-login', async () => {
     try {
-      const qrcode = await wechat.initWeChatLogin()
-      return { success: true, qrcode }
+      const result = await wechat.initWeChatLogin()
+      return { success: true, qrcode: result.qrcode, textCode: result.textCode }
     } catch (error) {
       log.error('WeChat login init failed:', error)
       return { success: false, error: (error as Error).message }
     }
   })
-  ipcMain.handle('wechat-complete-login', async (_, qrcode: string) => {
+  ipcMain.handle('wechat-complete-login', async (_, textCode: string) => {
+    // Create new abort controller for this login attempt
+    wechatLoginAbortController = new AbortController()
+    
     try {
-      const creds = await wechat.completeWeChatLogin(qrcode)
-      setWeChatBound(true, creds.userId)
-      startWeChatPush() // Start WeChat push timer
-      return { success: true, userId: creds.userId }
+      const result = await wechat.completeWeChatLogin(textCode, wechatLoginAbortController.signal)
+      if (result.success) {
+        setWeChatBound(true, result.userId)
+        startWeChatPush() // Start WeChat push timer
+        return { success: true, userId: result.userId }
+      } else {
+        return { success: false, error: result.error, expired: result.expired }
+      }
     } catch (error) {
       log.error('WeChat login complete failed:', error)
       return { success: false, error: (error as Error).message }
+    } finally {
+      wechatLoginAbortController = null
     }
   })
   ipcMain.handle('wechat-get-status', () => {
@@ -438,6 +448,15 @@ const setupIPC = () => {
       bound: wechat.isLoggedIn(),
       userId: wechat.getCredentials()?.userId
     }
+  })
+  ipcMain.handle('wechat-cancel-login', () => {
+    if (wechatLoginAbortController) {
+      wechatLoginAbortController.abort()
+      wechatLoginAbortController = null
+      log.info('[WeChat] Login cancelled by user')
+      return { success: true }
+    }
+    return { success: false }
   })
   ipcMain.handle('wechat-unbind', () => {
     wechat.clearCredentials()
