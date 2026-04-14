@@ -56,12 +56,14 @@ declare global {
       updateContact: (contact: Contact) => Promise<void>
       deleteContact: (id: number) => Promise<void>
       getTodayBirthdays: () => Promise<Contact[]>
+      showTodayBirthdays: () => Promise<Contact[]>
       importExcel: () => Promise<Contact[] | null>
       exportExcel: () => Promise<string | null>
       windowMinimize: () => Promise<void>
       windowMaximize: () => Promise<void>
       windowClose: () => Promise<void>
       windowIsMaximized: () => Promise<boolean>
+      onShowTodayBirthdays: (callback: () => void) => () => void
     }
   }
 }
@@ -248,6 +250,15 @@ function App() {
   useEffect(() => {
     loadContacts()
     checkMaximized()
+    
+    // Listen for notification click to show today's birthdays
+    const cleanup = window.electronAPI.onShowTodayBirthdays(() => {
+      loadContacts()
+      // Optionally show a modal or highlight today's birthdays
+      message.info('今日生日联系人已加载')
+    })
+    
+    return cleanup
   }, [])
 
   const checkMaximized = async () => {

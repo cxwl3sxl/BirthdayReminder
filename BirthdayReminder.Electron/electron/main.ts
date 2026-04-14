@@ -79,7 +79,18 @@ const showNotification = (title: string, body?: string) => {
     notification.on('click', () => {
       mainWindow?.show()
       mainWindow?.focus()
+      // Send event to renderer to show today's birthdays
+      mainWindow?.webContents.send('show-today-birthdays')
     })
+  }
+}
+
+// Show notification for today birthdays
+const showTodayBirthdaysNotification = async () => {
+  const todayBirthdays = await getTodayBirthdays()
+  if (todayBirthdays.length > 0) {
+    const names = todayBirthdays.map(c => c.name).join('、')
+    showNotification(`🎂 今日有 ${todayBirthdays.length} 位生日！`, names)
   }
 }
 
@@ -89,7 +100,8 @@ const startReminder = () => {
   reminderInterval = setInterval(async () => {
     const todayBirthdays = await getTodayBirthdays()
     if (todayBirthdays.length > 0) {
-      showNotification(`今日有 ${todayBirthdays.length} 位生日`, '点击查看详情')
+      const names = todayBirthdays.map(c => c.name).join('、')
+      showNotification(`🎂 今日有 ${todayBirthdays.length} 位生日！`, names)
     }
   }, 60 * 60 * 1000)
 }
@@ -101,6 +113,12 @@ const setupIPC = () => {
   ipcMain.handle('update-contact', async (_, contact) => await updateContact(contact))
   ipcMain.handle('delete-contact', async (_, id: number) => await deleteContact(id))
   ipcMain.handle('get-today-birthdays', async () => await getTodayBirthdays())
+  // Show today's birthdays in UI
+  ipcMain.handle('show-today-birthdays', async () => {
+    mainWindow?.show()
+    mainWindow?.focus()
+    return await getTodayBirthdays()
+  })
   ipcMain.handle('import-excel', async () => {
     try {
       const result = await dialog.showOpenDialog({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
@@ -138,6 +156,8 @@ app.whenReady().then(async () => {
     await initDatabase()
     setupIPC()
     createWindow()
+    // Check and show today's birthday notification on startup
+    await showTodayBirthdaysNotification()
     startReminder()
     log.info('Application started successfully')
   } catch (error) {
