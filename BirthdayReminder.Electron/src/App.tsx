@@ -550,9 +550,11 @@ function App() {
             pagination={{
               pageSize: 10,
               showSizeChanger: true,
-              showTotal: (total) => `共 ${total} 条记录`
+              showTotal: (total) => `共 ${total} 条记录`,
+              position: ['bottomCenter']
             }}
-            style={{ flex: 1, overflow: 'auto' }}
+            scroll={{ y: 'calc(100vh - 320px)' }}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
           />
         </div>
 

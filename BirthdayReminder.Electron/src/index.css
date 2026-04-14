@@ -111,6 +111,7 @@ body {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .ant-table {
@@ -122,11 +123,27 @@ body {
 .ant-table-container {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ant-table-header {
+  flex-shrink: 0;
+  overflow: visible !important;
 }
 
 .ant-table-body {
-  overflow: auto !important;
+  overflow-y: auto !important;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Pagination fixed at bottom */
+.ant-pagination {
+  flex-shrink: 0;
+  padding: 8px 0;
+  margin: 0 !important;
 }
 
 .ant-btn-primary {
