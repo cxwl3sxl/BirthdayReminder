@@ -1,3 +1,51 @@
+/* Birthday Reminder Theme - Warm & Celebratory */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Primary Colors - Warm Celebratory Palette */
+  --color-primary: #E07A5F;
+  --color-primary-dark: #C86045;
+  --color-primary-light: #F2A992;
+  
+  /* Accent Colors */
+  --color-accent: #F4D35E;
+  --color-accent-dark: #D4B43E;
+  
+  /* Background Colors */
+  --color-bg-primary: #FDF8F3;
+  --color-bg-secondary: #FFF9F0;
+  --color-bg-card: #FFFFFF;
+  
+  /* Text Colors */
+  --color-text-primary: #3D405B;
+  --color-text-secondary: #6B6E85;
+  --color-text-muted: #9898A6;
+  
+  /* Border & Shadow */
+  --color-border: #F0E6DD;
+  --shadow-sm: 0 2px 8px rgba(61, 64, 91, 0.06);
+  --shadow-md: 0 4px 16px rgba(61, 64, 91, 0.1);
+  --shadow-lg: 0 8px 32px rgba(61, 64, 91, 0.15);
+  
+  /* Title Bar */
+  --titlebar-bg: linear-gradient(135deg, #3D405B 0%, #5C5F7A 100%);
+  --titlebar-height: 48px;
+  
+  /* Typography */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Quicksand', -apple-system, sans-serif;
+  
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,9 +53,98 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-body);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  overflow: hidden;
 }
 
 #root {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* Ant Design Overrides */
+.ant-table {
+  font-family: var(--font-body);
+}
+
+.ant-table-thead > tr > th {
+  background: var(--color-bg-secondary) !important;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.ant-table-tbody > tr > td {
+  white-space: nowrap;
+}
+
+.ant-table-cell {
+  white-space: nowrap !important;
+}
+
+.ant-btn-primary {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 2px 8px rgba(224, 122, 95, 0.3);
+}
+
+.ant-btn-primary:hover {
+  background: var(--color-primary-dark) !important;
+  border-color: var(--color-primary-dark) !important;
+}
+
+.ant-modal-header {
+  font-family: var(--font-display);
+}
+
+/* Animation Keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }

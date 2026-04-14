@@ -30,6 +30,7 @@ const createWindow = () => {
     minWidth: 800,
     minHeight: 600,
     title: '生日提醒',
+    frame: false,
     webPreferences: {
       preload: getPreloadPath(),
       contextIsolation: true,
@@ -110,6 +111,14 @@ const setupIPC = () => {
     if (!result.canceled && result.filePath) return await exportExcel(result.filePath)
     return null
   })
+  // Window controls
+  ipcMain.handle('window-minimize', () => mainWindow?.minimize())
+  ipcMain.handle('window-maximize', () => {
+    if (mainWindow?.isMaximized()) mainWindow.unmaximize()
+    else mainWindow?.maximize()
+  })
+  ipcMain.handle('window-close', () => mainWindow?.close())
+  ipcMain.handle('window-is-maximized', () => mainWindow?.isMaximized())
 }
 
 // App ready
