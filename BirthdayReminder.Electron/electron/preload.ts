@@ -28,5 +28,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLoadBirthdayList: (callback: (type: string) => void) => {
     ipcRenderer.on('load-birthday-list', (_, type) => callback(type))
     return () => ipcRenderer.removeAllListeners('load-birthday-list')
+  },
+  onContactsUpdated: (callback: () => void) => {
+    ipcRenderer.on('contacts-updated', callback)
+    return () => ipcRenderer.removeListener('contacts-updated', callback)
+  },
+  onOpenSettings: (callback: () => void) => {
+    ipcRenderer.on('open-settings', callback)
+    return () => ipcRenderer.removeListener('open-settings', callback)
   }
 })

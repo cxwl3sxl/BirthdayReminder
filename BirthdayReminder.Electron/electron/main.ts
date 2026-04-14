@@ -112,9 +112,113 @@ const createWindow = () => {
 // Create tray
 const createTray = () => {
   log.info('Creating system tray...')
-  // Note: In production, you would use an icon
-  // For now, we skip tray if no icon available
-  log.info('System tray skipped (no icon)')
+  
+  // Create a simple 16x16 icon programmatically
+  const { nativeImage } = require('electron')
+  
+  // Create a simple cake icon using nativeImage
+  const iconSize = 16
+  const iconBuffer = Buffer.alloc(iconSize * iconSize * 4)
+  
+  // Fill with a simple pattern (cake-like shape)
+  for (let y = 0; y < iconSize; y++) {
+    for (let x = 0; x < iconSize; x++) {
+      const idx = (y * iconSize + x) * 4
+      // Create a simple colored square
+      if (y >= 4 && y <= 14 && x >= 2 && x <= 13) {
+        // Cake body - coral color
+        iconBuffer[idx] = 224     // R
+        iconBuffer[idx + 1] = 122  // G
+        iconBuffer[idx + 2] = 95   // B
+        iconBuffer[idx + 3] = 255 // A
+      } else {
+        // Transparent
+        iconBuffer[idx] = 0
+        iconBuffer[idx + 1] = 0
+        iconBuffer[idx + 2] = 0
+        iconBuffer[idx + 3] = 0
+      }
+    }
+  }
+  
+  const icon = nativeImage.createFromBuffer(iconBuffer, { width: iconSize, height: iconSize })
+  
+  tray = new Tray(icon)
+  tray.setToolTip('生日提醒')
+  
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示主窗口',
+      click: () => {
+        mainWindow?.show()
+        mainWindow?.focus()
+      }
+    },
+    { type: 'separator' },
+    {
+      label: '导入Excel',
+      click: async () => {
+        const result = await dialog.showOpenDialog({ filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }] })
+        if (!result.canceled && result.filePaths[0]) {
+          const contacts = await importExcel(result.filePaths[0])
+          if (contacts && contacts.length > 0) {
+            for (const contact of contacts) {
+              await addContact(contact)
+            }
+            showNotification(`成功导入 ${contacts.length} 条记录`)
+            mainWindow?.webContents.send('contacts-updated')
+          }
+        }
+      }
+    },
+    {
+      label: '导出Excel',
+      click: async () => {
+        const result = await dialog.showSaveDialog({ defaultPath: 'birthdays.xlsx', filters: [{ name: 'Excel', extensions: ['xlsx'] }] })
+        if (!result.canceled && result.filePath) {
+          await exportExcel(result.filePath)
+          showNotification('导出成功', result.filePath)
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: '设置',
+      click: () => {
+        mainWindow?.show()
+        mainWindow?.focus()
+        mainWindow?.webContents.send('open-settings')
+      }
+    },
+    {
+      label: '今日生日',
+      click: () => createListWindow('today')
+    },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => {
+        app.isQuitting = true
+        app.quit()
+      }
+    }
+  ])
+  
+  tray.setContextMenu(contextMenu)
+  
+  // Single click to show window
+  tray.on('click', () => {
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
+  
+  // Double click to show window
+  tray.on('double-click', () => {
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
+  
+  log.info('System tray created')
 }
 
 // Show notification
@@ -207,6 +311,7 @@ app.whenReady().then(async () => {
     await initDatabase()
     setupIPC()
     createWindow()
+    createTray()
     // Check and show today's birthday notification on startup
     await showTodayBirthdaysNotification()
     startReminder()

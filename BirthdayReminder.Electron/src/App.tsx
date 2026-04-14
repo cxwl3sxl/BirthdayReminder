@@ -70,6 +70,8 @@ declare global {
       listWindowClose: () => Promise<void>
       onShowTodayBirthdays: (callback: () => void) => () => void
       onLoadBirthdayList: (callback: (type: string) => void) => () => void
+      onContactsUpdated: (callback: () => void) => () => void
+      onOpenSettings: (callback: () => void) => () => void
     }
   }
 }
@@ -260,11 +262,25 @@ function App() {
     // Listen for notification click to show today's birthdays
     const cleanup = window.electronAPI.onShowTodayBirthdays(() => {
       loadContacts()
-      // Optionally show a modal or highlight today's birthdays
       message.info('今日生日联系人已加载')
     })
     
-    return cleanup
+    // Listen for contacts updated from tray
+    const cleanupUpdated = window.electronAPI.onContactsUpdated(() => {
+      loadContacts()
+      message.success('联系人已更新')
+    })
+    
+    // Listen for open settings from tray
+    const cleanupSettings = window.electronAPI.onOpenSettings(() => {
+      message.info('设置功能开发中')
+    })
+    
+    return () => {
+      cleanup()
+      cleanupUpdated()
+      cleanupSettings()
+    }
   }, [])
 
   const checkMaximized = async () => {
