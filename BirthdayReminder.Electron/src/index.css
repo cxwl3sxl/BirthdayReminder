@@ -105,6 +105,30 @@ body {
   white-space: nowrap !important;
 }
 
+/* Table scrollable container */
+.ant-table-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.ant-table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ant-table-container {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.ant-table-body {
+  overflow: auto !important;
+}
+
 .ant-btn-primary {
   background: var(--color-primary) !important;
   border-color: var(--color-primary) !important;

@@ -144,7 +144,9 @@ const styles = {
   mainContent: {
     flex: 1,
     padding: 24,
-    overflow: 'auto'
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden'
   },
   headerCard: {
     background: 'var(--color-bg-card)',
@@ -152,7 +154,8 @@ const styles = {
     padding: '28px 32px',
     marginBottom: 24,
     boxShadow: 'var(--shadow-sm)',
-    border: '1px solid var(--color-border)'
+    border: '1px solid var(--color-border)',
+    flexShrink: 0
   },
   headerTop: {
     display: 'flex',
@@ -198,12 +201,16 @@ const styles = {
     color: 'var(--color-text-primary)'
   },
   tableCard: {
+    flex: 1,
     background: 'var(--color-bg-card)',
     borderRadius: 'var(--radius-lg)',
     padding: 24,
     boxShadow: 'var(--shadow-sm)',
     border: '1px solid var(--color-border)',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0
   },
   statsRow: {
     display: 'flex',
@@ -539,11 +546,13 @@ function App() {
             dataSource={contacts}
             rowKey="id"
             loading={loading}
+            size="small"
             pagination={{
               pageSize: 10,
               showSizeChanger: true,
               showTotal: (total) => `共 ${total} 条记录`
             }}
+            style={{ flex: 1, overflow: 'auto' }}
           />
         </div>
 
