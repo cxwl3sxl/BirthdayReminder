@@ -154,6 +154,53 @@ async function apiPost<T>(endpoint: string, body: object, token?: string, timeou
   return response.json() as Promise<T>
 }
 
+// Store typing ticket
+let typingTicket = ''
+
+// Get bot config including typing ticket
+async function getBotConfig(): Promise<void> {
+  if (!credentials) {
+    throw new Error('WeChat not logged in')
+  }
+  
+  try {
+    const result = await apiPost<{ ret: number; typing_ticket?: string }>(
+      'getconfig',
+      {},
+      credentials.token
+    )
+    
+    if (result.typing_ticket) {
+      typingTicket = result.typing_ticket
+      log.info('[WeChat] Got typing ticket')
+    }
+  } catch (error) {
+    log.error('[WeChat] Failed to get config:', error)
+  }
+}
+
+// Send typing indicator to user
+async function sendTypingIndicator(toUserId: string, isTyping: boolean): Promise<void> {
+  if (!credentials || !typingTicket) {
+    return
+  }
+  
+  try {
+    await apiPost(
+      'sendtyping',
+      {
+        ilink_user_id: toUserId,
+        typing_ticket: typingTicket,
+        status: isTyping ? 1 : 2
+      },
+      credentials.token
+    )
+    log.info(`[WeChat] Sent typing indicator (${isTyping ? 'start' : 'stop'}) to ${toUserId}`)
+  } catch (error) {
+    log.error('[WeChat] Failed to send typing:', error)
+  }
+}
+
 // Get QR code for login
 async function fetchQRCode(): Promise<QRCodeResponse> {
   log.info('[WeChat] Fetching QR code...')
@@ -321,6 +368,10 @@ export async function completeWeChatLogin(qrcode: string, signal?: AbortSignal):
     const creds = await pollQRCodeStatus(qrcode, signal)
     credentials = creds
     saveCredentials(creds)
+    
+    // Get typing ticket after successful login
+    await getBotConfig()
+    
     return { success: true, userId: creds.userId }
   } catch (error) {
     // If aborted, don't return error - just return cancelled
@@ -424,6 +475,9 @@ export async function handleIncomingMessages(getBirthdayContacts: () => Promise<
               
               log.info(`[WeChat] Received message from ${fromUserId}: ${userText}`)
               
+              // Send typing indicator (thinking)
+              await sendTypingIndicator(fromUserId, true)
+              
               // Get today's birthdays and respond
               const contacts = await getBirthdayContacts()
               let responseMessage: string
@@ -452,7 +506,12 @@ export async function handleIncomingMessages(getBirthdayContacts: () => Promise<
                 responseMessage += `\n共 ${contacts.length} 位朋友今天生日，祝他们生日快乐！🎉`
               }
               
+              // Send response
               await sendTextMessage(fromUserId, responseMessage, contextToken)
+              
+              // Stop typing indicator
+              await sendTypingIndicator(fromUserId, false)
+              
               log.info(`[WeChat] Sent birthday reply to ${fromUserId}`)
             }
           }
@@ -461,6 +520,15 @@ export async function handleIncomingMessages(getBirthdayContacts: () => Promise<
     }
   } catch (error) {
     log.error('[WeChat] Error handling incoming messages:', error)
+  }
+}
+
+// Initialize WeChat after successful login
+export function initWeChat(): void {
+  loadCredentials()
+  // Try to get typing ticket after loading credentials
+  if (credentials) {
+    getBotConfig().catch(err => log.error('[WeChat] Failed to init typing:', err))
   }
 }
 
@@ -522,11 +590,6 @@ export function clearCredentials(): void {
   }
   
   log.info('[WeChat] Credentials cleared')
-}
-
-// Initialize on module load
-export function initWeChat(): void {
-  loadCredentials()
 }
 
 export default {
