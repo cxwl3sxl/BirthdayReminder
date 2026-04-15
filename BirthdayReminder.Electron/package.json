@@ -44,6 +44,12 @@
       ],
       "icon": "icon.ico"
     },
+    "extraResources": [
+      {
+        "from": "icon.png",
+        "to": "icon.png"
+      }
+    ],
     "portable": {
       "artifactName": "${productName}.exe"
     }
