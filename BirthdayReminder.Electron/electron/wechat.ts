@@ -154,34 +154,58 @@ async function apiPost<T>(endpoint: string, body: object, token?: string, timeou
   return response.json() as Promise<T>
 }
 
-// Store typing ticket
-let typingTicket = ''
+// Store typing tickets per user
+const typingTickets = new Map<string, string>()
 
-// Get bot config including typing ticket
-async function getBotConfig(): Promise<void> {
+// Get typing ticket for a specific user
+async function getTypingTicketForUser(toUserId: string, contextToken?: string): Promise<string | null> {
   if (!credentials) {
-    throw new Error('WeChat not logged in')
+    return null
+  }
+  
+  // Check cache first
+  const cached = typingTickets.get(toUserId)
+  if (cached) {
+    return cached
   }
   
   try {
     const result = await apiPost<{ ret: number; typing_ticket?: string }>(
       'getconfig',
-      { base_info: { channel_version: '1.0.0' } },
+      {
+        ilink_user_id: toUserId,
+        context_token: contextToken,
+        base_info: { channel_version: '1.0.0' }
+      },
       credentials.token
     )
     
     if (result.typing_ticket) {
-      typingTicket = result.typing_ticket
-      log.info('[WeChat] Got typing ticket')
+      typingTickets.set(toUserId, result.typing_ticket)
+      log.info(`[WeChat] Got typing ticket for ${toUserId}`)
+      return result.typing_ticket
     }
   } catch (error) {
-    log.error('[WeChat] Failed to get config:', error)
+    log.error('[WeChat] Failed to get typing ticket:', error)
   }
+  
+  return null
 }
 
 // Send typing indicator to user
-async function sendTypingIndicator(toUserId: string, isTyping: boolean): Promise<void> {
-  if (!credentials || !typingTicket) {
+async function sendTypingIndicator(toUserId: string, isTyping: boolean, contextToken?: string): Promise<void> {
+  if (!credentials) {
+    return
+  }
+  
+  // Get or retrieve typing ticket for this user
+  let ticket = typingTickets.get(toUserId)
+  if (!ticket) {
+    ticket = await getTypingTicketForUser(toUserId, contextToken)
+  }
+  
+  if (!ticket) {
+    log.warn(`[WeChat] No typing ticket for ${toUserId}, skipping typing indicator`)
     return
   }
   
@@ -190,7 +214,7 @@ async function sendTypingIndicator(toUserId: string, isTyping: boolean): Promise
       'sendtyping',
       {
         ilink_user_id: toUserId,
-        typing_ticket: typingTicket,
+        typing_ticket: ticket,
         status: isTyping ? 1 : 2,
         base_info: { channel_version: '1.0.0' }
       },
@@ -370,9 +394,6 @@ export async function completeWeChatLogin(qrcode: string, signal?: AbortSignal):
     credentials = creds
     saveCredentials(creds)
     
-    // Get typing ticket after successful login
-    await getBotConfig()
-    
     return { success: true, userId: creds.userId }
   } catch (error) {
     // If aborted, don't return error - just return cancelled
@@ -495,7 +516,7 @@ export async function handleIncomingMessages(getBirthdayContacts: () => Promise<
               log.info(`[WeChat] Received message from ${fromUserId}: ${userText}`)
               
               // Send typing indicator (thinking)
-              await sendTypingIndicator(fromUserId, true)
+              await sendTypingIndicator(fromUserId, true, contextToken)
               
               // Get today's birthdays and respond
               const contacts = await getBirthdayContacts()
@@ -529,7 +550,7 @@ export async function handleIncomingMessages(getBirthdayContacts: () => Promise<
               await sendTextMessage(fromUserId, responseMessage, contextToken)
               
               // Stop typing indicator
-              await sendTypingIndicator(fromUserId, false)
+              await sendTypingIndicator(fromUserId, false, contextToken)
               
               log.info(`[WeChat] Sent birthday reply to ${fromUserId}`)
             }
@@ -545,10 +566,6 @@ export async function handleIncomingMessages(getBirthdayContacts: () => Promise<
 // Initialize WeChat after successful login
 export function initWeChat(): void {
   loadCredentials()
-  // Try to get typing ticket after loading credentials
-  if (credentials) {
-    getBotConfig().catch(err => log.error('[WeChat] Failed to init typing:', err))
-  }
 }
 
 // Get credentials file path
