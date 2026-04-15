@@ -28,19 +28,19 @@ const getPreloadPath = () => path.join(__dirname, 'preload.js')
 // Create list window for birthday contacts
 const createListWindow = (type: 'today' | 'upcoming') => {
   log.info(`Creating list window for: ${type}`)
-  
+
   if (listWindow) {
     listWindow.focus()
     listWindow.webContents.send('load-birthday-list', type)
     return
   }
-  
+
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
-  const iconPath = app.isPackaged 
+  const iconPath = app.isPackaged
     ? path.join(process.resourcesPath, 'icon.png')
     : path.join(__dirname, '../icon.png')
-  
+
   listWindow = new BrowserWindow({
     width: 600,
     height: 500,
@@ -57,18 +57,18 @@ const createListWindow = (type: 'today' | 'upcoming') => {
     },
     show: false
   })
-  
+
   listWindow.once('ready-to-show', () => {
     listWindow?.show()
     listWindow?.webContents.send('load-birthday-list', type)
   })
-  
+
   if (isDev) {
     listWindow.loadURL('http://localhost:5173/#/list')
   } else {
     listWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: '/list' })
   }
-  
+
   listWindow.on('closed', () => {
     listWindow = null
   })
@@ -77,11 +77,11 @@ const createListWindow = (type: 'today' | 'upcoming') => {
 // Create main window
 const createWindow = () => {
   log.info('Creating main window...')
-  
-  const iconPath = app.isPackaged 
+
+  const iconPath = app.isPackaged
     ? path.join(process.resourcesPath, 'icon.png')
     : path.join(__dirname, '../icon.png')
-  
+
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
@@ -125,20 +125,20 @@ const createWindow = () => {
 // Create tray
 const createTray = () => {
   log.info('Creating system tray...')
-  
-  const iconPath = app.isPackaged 
+
+  const iconPath = app.isPackaged
     ? path.join(process.resourcesPath, 'icon.png')
     : path.join(__dirname, '../icon.png')
   const icon = nativeImage.createFromPath(iconPath)
-  
+
   if (icon.isEmpty()) {
     log.warn('Tray icon is empty, using default')
     return
   }
-  
+
   tray = new Tray(icon.resize({ width: 16, height: 16 }))
   tray.setToolTip('生日提醒')
-  
+
   const contextMenu = Menu.buildFromTemplate([
     {
       label: '显示主窗口',
@@ -196,21 +196,21 @@ const createTray = () => {
       }
     }
   ])
-  
+
   tray.setContextMenu(contextMenu)
-  
+
   // Single click to show window
   tray.on('click', () => {
     mainWindow?.show()
     mainWindow?.focus()
   })
-  
+
   // Double click to show window
   tray.on('double-click', () => {
     mainWindow?.show()
     mainWindow?.focus()
   })
-  
+
   log.info('System tray created')
 }
 
@@ -246,30 +246,30 @@ const checkTodayBirthdays = async () => {
 // Start reminder check with configurable time
 const startReminder = () => {
   log.info('Starting birthday reminder check...')
-  
+
   const checkAndSchedule = () => {
     const settings = getSettings()
     const [hours, minutes] = settings.reminderTime.split(':').map(Number)
     const now = new Date()
     const targetTime = new Date(now)
     targetTime.setHours(hours, minutes, 0, 0)
-    
+
     // If target time is in the past, schedule for tomorrow
     if (targetTime <= now) {
       targetTime.setDate(targetTime.getDate() + 1)
     }
-    
+
     const delay = targetTime.getTime() - now.getTime()
-    
+
     log.info(`Next birthday check scheduled in ${Math.round(delay / 1000 / 60)} minutes`)
-    
+
     if (reminderTimer) clearTimeout(reminderTimer)
     reminderTimer = setTimeout(async () => {
       await checkTodayBirthdays()
       checkAndSchedule() // Reschedule for next day
     }, delay)
   }
-  
+
   // Initial check
   checkAndSchedule()
 }
@@ -278,9 +278,9 @@ const startReminder = () => {
 const generateBirthdayMessage = (contacts: Contact[]): string => {
   const today = new Date()
   const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`
-  
+
   let message = `🎂 生日提醒\n\n今天是 ${dateStr}，以下朋友过生日：\n\n`
-  
+
   for (const contact of contacts) {
     message += `• ${contact.name}`
     if (contact.phoneNumber) {
@@ -291,7 +291,7 @@ const generateBirthdayMessage = (contacts: Contact[]): string => {
     }
     message += '\n'
   }
-  
+
   message += `\n祝他们生日快乐！🎉`
   return message
 }
@@ -301,30 +301,30 @@ const startWeChatPush = () => {
   if (wechatPushTimer) {
     clearInterval(wechatPushTimer)
   }
-  
+
   log.info('Starting WeChat birthday push...')
-  
+
   // Check every 5 seconds for faster message handling
   const messagePollInterval = 5 * 1000
-  
+
   // Handle messages with immediate repetition for faster response
   const pollMessages = async () => {
     const settings = getSettings()
     if (!settings.wechatBound || !wechat.isLoggedIn()) {
       return
     }
-    
+
     // Handle incoming messages - respond immediately after processing
     try {
       await wechat.handleIncomingMessages(getTodayBirthdays)
     } catch (err) {
       log.error('WeChat message handling error:', err)
     }
-    
+
     // Check birthday push time
     const now = new Date()
     const [targetHour] = settings.reminderTime.split(':').map(Number)
-    
+
     if (now.getHours() === targetHour && now.getMinutes() === 0) {
       const contacts = await getTodayBirthdays()
       if (contacts.length > 0) {
@@ -341,9 +341,9 @@ const startWeChatPush = () => {
       }
     }
   }
-  
+
   wechatPushTimer = setInterval(pollMessages, messagePollInterval)
-  
+
   // Also do an immediate check
   const settings = getSettings()
   if (settings.wechatBound && wechat.isLoggedIn()) {
@@ -438,7 +438,7 @@ const setupIPC = () => {
   ipcMain.handle('wechat-complete-login', async (_, textCode: string) => {
     // Create new abort controller for this login attempt
     wechatLoginAbortController = new AbortController()
-    
+
     try {
       const result = await wechat.completeWeChatLogin(textCode, wechatLoginAbortController.signal)
       if (result.success) {
@@ -485,12 +485,12 @@ const setupIPC = () => {
       if (contacts.length === 0) {
         return { success: false, message: '今日无生日联系人' }
       }
-      
+
       const creds = wechat.getCredentials()
       if (!creds) {
         return { success: false, message: '未绑定微信' }
       }
-      
+
       const message = generateBirthdayMessage(contacts)
       await wechat.sendTextMessage(creds.userId, message)
       return { success: true, message: '测试消息发送成功' }
@@ -500,6 +500,8 @@ const setupIPC = () => {
     }
   })
 }
+
+app.setAppUserModelId("生日提醒");
 
 // App ready
 app.whenReady().then(async () => {
@@ -513,13 +515,13 @@ app.whenReady().then(async () => {
     // Check and show today's birthday notification on startup
     await showTodayBirthdaysNotification()
     startReminder()
-    
+
     // Start WeChat push if already bound
     const settings = getSettings()
     if (settings.wechatBound && wechat.isLoggedIn()) {
       startWeChatPush()
     }
-    
+
     log.info('Application started successfully')
   } catch (error) {
     log.error('Error during startup:', error)
