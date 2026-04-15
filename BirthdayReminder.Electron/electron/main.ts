@@ -158,7 +158,7 @@ const createTray = () => {
             for (const contact of contacts) {
               await addContact(contact)
             }
-            showNotification(`成功导入 ${contacts.length} 条记录`)
+            showNotification('生日提醒', `成功导入 ${contacts.length} 条记录`)
             mainWindow?.webContents.send('contacts-updated')
           }
         }
@@ -230,7 +230,7 @@ const showTodayBirthdaysNotification = async () => {
   const todayBirthdays = await getTodayBirthdays()
   if (todayBirthdays.length > 0) {
     const names = todayBirthdays.map(c => c.name).join('、')
-    showNotification(`生日提醒 - 今日有 ${todayBirthdays.length} 位生日！`, names)
+    showNotification('生日提醒', names)
   }
 }
 
@@ -239,7 +239,7 @@ const checkTodayBirthdays = async () => {
   const todayBirthdays = await getTodayBirthdays()
   if (todayBirthdays.length > 0) {
     const names = todayBirthdays.map(c => c.name).join('、')
-    showNotification(`生日提醒 - 今日有 ${todayBirthdays.length} 位生日！`, names)
+    showNotification('生日提醒', names)
   }
 }
 
