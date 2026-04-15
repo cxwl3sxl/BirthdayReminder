@@ -304,17 +304,27 @@ const startWeChatPush = () => {
   
   log.info('Starting WeChat birthday push...')
   
-  // Check every hour
-  wechatPushTimer = setInterval(async () => {
+  // Check every 5 seconds for faster message handling
+  const messagePollInterval = 5 * 1000
+  
+  // Handle messages with immediate repetition for faster response
+  const pollMessages = async () => {
     const settings = getSettings()
     if (!settings.wechatBound || !wechat.isLoggedIn()) {
       return
     }
     
+    // Handle incoming messages - respond immediately after processing
+    try {
+      await wechat.handleIncomingMessages(getTodayBirthdays)
+    } catch (err) {
+      log.error('WeChat message handling error:', err)
+    }
+    
+    // Check birthday push time
     const now = new Date()
     const [targetHour] = settings.reminderTime.split(':').map(Number)
     
-    // Only push at the configured time
     if (now.getHours() === targetHour && now.getMinutes() === 0) {
       const contacts = await getTodayBirthdays()
       if (contacts.length > 0) {
@@ -330,14 +340,9 @@ const startWeChatPush = () => {
         }
       }
     }
-    
-    // Also handle incoming messages
-    try {
-      await wechat.handleIncomingMessages(getTodayBirthdays)
-    } catch (err) {
-      log.error('WeChat message handling error:', err)
-    }
-  }, 60 * 1000) // Check every minute for messages, push at configured hour
+  }
+  
+  wechatPushTimer = setInterval(pollMessages, messagePollInterval)
   
   // Also do an immediate check
   const settings = getSettings()

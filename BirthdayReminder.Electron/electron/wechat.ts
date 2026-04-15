@@ -166,7 +166,7 @@ async function getBotConfig(): Promise<void> {
   try {
     const result = await apiPost<{ ret: number; typing_ticket?: string }>(
       'getconfig',
-      {},
+      { base_info: { channel_version: '1.0.0' } },
       credentials.token
     )
     
@@ -191,7 +191,8 @@ async function sendTypingIndicator(toUserId: string, isTyping: boolean): Promise
       {
         ilink_user_id: toUserId,
         typing_ticket: typingTicket,
-        status: isTyping ? 1 : 2
+        status: isTyping ? 1 : 2,
+        base_info: { channel_version: '1.0.0' }
       },
       credentials.token
     )
@@ -402,9 +403,9 @@ export async function getUpdates(): Promise<GetUpdatesResp> {
   try {
     const result = await apiPost<GetUpdatesResp>(
       'getupdates',
-      { get_updates_buf: getUpdatesBuf },
+      { get_updates_buf: getUpdatesBuf, base_info: { channel_version: '1.0.0' } },
       credentials.token,
-      35000 // 35 second long poll
+      10000 // 10 second long poll for faster response
     )
     
     if (result.get_updates_buf) {
@@ -427,23 +428,41 @@ export async function sendTextMessage(toUserId: string, text: string, contextTok
     throw new Error('WeChat not logged in')
   }
   
+  log.info(`[WeChat] Preparing to send message to ${toUserId}, contextToken: ${contextToken}, credentials loaded: ${!!credentials}`)
+  
   const message: WeixinMessage = {
     from_user_id: '',
     to_user_id: toUserId,
-    client_id: '',
+    client_id: `birthday-reminder:${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
     message_type: 2, // BOT
     message_state: 2, // FINISH
     item_list: [{ type: 1, text_item: { text } }], // TEXT
     context_token: contextToken
   }
   
-  await apiPost(
+  // Include base_info as required by iLink API protocol
+  const payload = {
+    msg: message,
+    base_info: {
+      channel_version: '1.0.0'
+    }
+  }
+  
+  log.info(`[WeChat] Sending message payload: ${JSON.stringify(payload)}`)
+  
+  const result = await apiPost<{ ret: number; err_msg?: string }>(
     'sendmessage',
-    { msg: message },
+    payload,
     credentials.token
   )
   
-  log.info(`[WeChat] Message sent to ${toUserId}`)
+  log.info(`[WeChat] Send message result: ${JSON.stringify(result)}`)
+  
+  if (result.ret !== 0) {
+    throw new Error(`Failed to send message: ${result.err_msg || 'unknown error'}`)
+  }
+  
+  log.info(`[WeChat] Message sent successfully to ${toUserId}`)
 }
 
 // Generate birthday message for responding to user
