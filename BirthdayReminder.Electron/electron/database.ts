@@ -15,6 +15,7 @@ export interface Contact {
   daysUntil?: number
   countdownText?: string
   isBirthdayToday?: boolean
+  lastNotifiedDate?: string
 }
 
 const getDbPath = () => path.join(app.getPath('userData'), 'birthdays.db')
@@ -31,9 +32,16 @@ export const initDatabase = async () => {
       birthday TEXT NOT NULL,
       remarks TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+      lastNotifiedDate TEXT
     )
   `)
+  // 添加 lastNotifiedDate 字段（如果不存在）
+  try {
+    db.exec('ALTER TABLE contacts ADD COLUMN lastNotifiedDate TEXT')
+  } catch (e) {
+    // 字段可能已存在，忽略错误
+  }
   log.info('Database initialized')
 }
 
@@ -96,4 +104,10 @@ export const updateContact = async (contact: Contact): Promise<void> => {
 export const deleteContact = async (id: number): Promise<void> => {
   if (!db) throw new Error('Database not initialized')
   db.prepare('DELETE FROM contacts WHERE id = ?').run(id)
+}
+
+// 更新联系人的最后通知时间
+export const updateLastNotifiedDate = async (id: number, date: string): Promise<void> => {
+  if (!db) throw new Error('Database not initialized')
+  db.prepare('UPDATE contacts SET lastNotifiedDate = ? WHERE id = ?').run(date, id)
 }

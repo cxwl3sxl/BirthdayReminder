@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Tray, Menu, Notification, dialog, screen, nativeImage } from 'electron'
 import path from 'path'
 import log from 'electron-log'
-import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays, getContactsInDays } from './database'
+import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays, getContactsInDays, updateLastNotifiedDate } from './database'
 import { importExcel, exportExcel } from './excel'
 import { getSettings, setAutoStart, setReminderTime, setWeChatBound } from './settings'
 import * as wechat from './wechat'
@@ -228,18 +228,42 @@ const showNotification = (title: string, body?: string, type: 'today' | 'upcomin
 // Show notification for today birthdays
 const showTodayBirthdaysNotification = async () => {
   const todayBirthdays = await getTodayBirthdays()
-  if (todayBirthdays.length > 0) {
-    const names = todayBirthdays.map(c => c.name).join('、')
+  const today = new Date().toISOString().split('T')[0]
+  
+  // 过滤掉今天已经通知过的联系人
+  const toNotify = todayBirthdays.filter(c => c.lastNotifiedDate !== today)
+  
+  if (toNotify.length > 0) {
+    const names = toNotify.map(c => c.name).join('、')
     showNotification('生日提醒', names)
+    
+    // 更新最后通知时间
+    for (const contact of toNotify) {
+      if (contact.id) {
+        await updateLastNotifiedDate(contact.id, today)
+      }
+    }
   }
 }
 
 // Check and show today's birthday notification
 const checkTodayBirthdays = async () => {
   const todayBirthdays = await getTodayBirthdays()
-  if (todayBirthdays.length > 0) {
-    const names = todayBirthdays.map(c => c.name).join('、')
+  const today = new Date().toISOString().split('T')[0]
+  
+  // 过滤掉今天已经通知过的联系人
+  const toNotify = todayBirthdays.filter(c => c.lastNotifiedDate !== today)
+  
+  if (toNotify.length > 0) {
+    const names = toNotify.map(c => c.name).join('、')
     showNotification('生日提醒', names)
+    
+    // 更新最后通知时间
+    for (const contact of toNotify) {
+      if (contact.id) {
+        await updateLastNotifiedDate(contact.id, today)
+      }
+    }
   }
 }
 
@@ -323,16 +347,26 @@ const startWeChatPush = () => {
 
     // Check birthday push time
     const now = new Date()
+    const today = now.toISOString().split('T')[0]
     const [targetHour] = settings.reminderTime.split(':').map(Number)
 
     if (now.getHours() === targetHour && now.getMinutes() === 0) {
-      const contacts = await getTodayBirthdays()
+      const allContacts = await getTodayBirthdays()
+      // 过滤今天未通知的联系人
+      const contacts = allContacts.filter(c => c.lastNotifiedDate !== today)
+      
       if (contacts.length > 0) {
         const creds = wechat.getCredentials()
         if (creds) {
           const message = generateBirthdayMessage(contacts)
           try {
             await wechat.sendTextMessage(creds.userId, message)
+            // 更新最后通知时间
+            for (const contact of contacts) {
+              if (contact.id) {
+                await updateLastNotifiedDate(contact.id, today)
+              }
+            }
             log.info('WeChat birthday push sent successfully')
           } catch (err) {
             log.error('WeChat push failed:', err)
@@ -348,17 +382,27 @@ const startWeChatPush = () => {
   const settings = getSettings()
   if (settings.wechatBound && wechat.isLoggedIn()) {
     const now = new Date()
+    const today = now.toISOString().split('T')[0]
     const [targetHour] = settings.reminderTime.split(':').map(Number)
     if (now.getHours() === targetHour) {
       // Run immediately if it's the configured hour
       setTimeout(async () => {
-        const contacts = await getTodayBirthdays()
+        const allContacts = await getTodayBirthdays()
+        // 过滤今天未通知的联系人
+        const contacts = allContacts.filter(c => c.lastNotifiedDate !== today)
+        
         if (contacts.length > 0) {
           const creds = wechat.getCredentials()
           if (creds) {
             const message = generateBirthdayMessage(contacts)
             try {
               await wechat.sendTextMessage(creds.userId, message)
+              // 更新最后通知时间
+              for (const contact of contacts) {
+                if (contact.id) {
+                  await updateLastNotifiedDate(contact.id, today)
+                }
+              }
             } catch (err) {
               log.error('WeChat push failed:', err)
             }
