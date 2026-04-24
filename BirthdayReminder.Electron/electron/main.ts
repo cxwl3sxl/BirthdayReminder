@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, Notification, dialog, screen, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, Tray, Menu, Notification, dialog, screen, nativeImage, shell } from 'electron'
 import path from 'path'
 import log from 'electron-log'
 import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays, getContactsInDays, updateLastNotifiedDate } from './database'
@@ -189,6 +189,17 @@ const createTray = () => {
     },
     { type: 'separator' },
     {
+      label: '打开日志目录',
+      click: () => {
+        const logPath = log.transports.file.getFile().path
+        const logDir = path.dirname(logPath)
+        shell.openPath(logDir).then(err => {
+          if (err) log.error('Failed to open log directory:', err)
+        })
+      }
+    },
+    { type: 'separator' },
+    {
       label: '退出',
       click: () => {
         app.isQuitting = true
@@ -348,9 +359,9 @@ const startWeChatPush = () => {
     // Check birthday push time
     const now = new Date()
     const today = now.toISOString().split('T')[0]
-    const [targetHour] = settings.reminderTime.split(':').map(Number)
+    const [targetHour, targetMinute] = settings.reminderTime.split(':').map(Number)
 
-    if (now.getHours() === targetHour && now.getMinutes() === 0) {
+    if (now.getHours() === targetHour && now.getMinutes() === targetMinute) {
       const allContacts = await getTodayBirthdays()
       // 过滤今天未通知的联系人
       const contacts = allContacts.filter(c => c.lastNotifiedDate !== today)
@@ -383,8 +394,8 @@ const startWeChatPush = () => {
   if (settings.wechatBound && wechat.isLoggedIn()) {
     const now = new Date()
     const today = now.toISOString().split('T')[0]
-    const [targetHour] = settings.reminderTime.split(':').map(Number)
-    if (now.getHours() === targetHour) {
+    const [targetHour, targetMinute] = settings.reminderTime.split(':').map(Number)
+    if (now.getHours() === targetHour && now.getMinutes() === targetMinute) {
       // Run immediately if it's the configured hour
       setTimeout(async () => {
         const allContacts = await getTodayBirthdays()
