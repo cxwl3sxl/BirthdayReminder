@@ -241,25 +241,37 @@ export function startWeChatPoll(): void {
   stopWeChatPoll()
   
   const settings = getSettings()
-  if (!settings.wechatBound || !wechat.isLoggedIn()) {
+  const creds = wechat.getCredentials()
+  log.info(`[WeChat] Starting poll... bound: ${settings.wechatBound}, loggedIn: ${wechat.isLoggedIn()}, creds: ${!!creds}, userId: ${creds?.userId}`)
+  
+  if (!settings.wechatBound || !wechat.isLoggedIn() || !creds?.userId) {
+    log.info('[WeChat] Skipping poll - not ready')
     return
   }
   
-  log.info('[WeChat] Starting poll...')
+  log.info('[WeChat] Starting message poll (10s interval)')
   
   // 每10秒轮询一次
   const poll = async () => {
     if (!wechat.isLoggedIn()) {
+      log.warn('[WeChat] Not logged in, stopping poll')
+      stopWeChatPoll()
       return
     }
     try {
+      log.debug('[WeChat] Poll: checking messages...')
       await wechat.handleIncomingMessages(getTodayBirthdays)
     } catch (error) {
       log.error('[WeChat] Poll error:', error)
     }
   }
   
-  poll() // 立即执行一次
+  // 首次轮询
+  poll().catch(err => {
+    log.error('[WeChat] First poll failed:', err)
+  })
+  
+  // 后续轮询
   wechatPollTimer = setInterval(poll, 10000)
 }
 
