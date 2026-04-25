@@ -122,23 +122,28 @@ export class NotificationScheduler {
         return
       }
       
-      log.info(`[Scheduler] Found birthdays: ${contacts.map(c => c.name).join(', ')}`)
+log.info(`[Scheduler] Found birthdays: ${contacts.map(c => c.name).join(', ')}`)
       
-      // 发送到所有渠道
-      const results = await notificationRegistry.notifyAll(
-        '生日提醒',
-        contacts,
-        this.updateNotifiedDate,
-        today
-      )
+      // 发送到所有渠道（不传更新函数，由scheduler自己更新）
+      const results = await notificationRegistry.notifyAll('生日提醒', contacts)
       
       // 记录结果
       for (const result of results) {
         if (result.success) {
           log.info(`[Scheduler] ${result.channel}: sent`)
         } else {
-          log.error(`[Scheduler] ${result.channel}: failed - ${result.error}`)
+          log.error(`[Scheduler] ${result.channel}: ${result.error}`)
         }
+      }
+      
+      // 通知发送后更新标记（无论成功失败）
+      if (results.some(r => r.success)) {
+        for (const contact of contacts) {
+          if (contact.id) {
+            await this.updateNotifiedDate(contact.id, today)
+          }
+        }
+        log.info(`[Scheduler] Updated notified date`)
       }
     } catch (error) {
       log.error('[Scheduler] Error:', error)

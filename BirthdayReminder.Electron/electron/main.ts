@@ -5,7 +5,7 @@ import { initDatabase, getContacts, addContact, updateContact, deleteContact, ge
 import { importExcel, exportExcel } from './excel'
 import { getSettings, setAutoStart, setReminderTime, setWeChatBound } from './settings'
 import * as wechat from './wechat'
-import { Contact, notificationRegistry, WindowsNotificationChannel, WeChatNotificationChannel } from './notification-channel'
+import { Contact, notificationRegistry, WindowsNotificationChannel, WeChatNotificationChannel, startWeChatPoll, stopWeChatPoll } from './notification-channel'
 import { NotificationScheduler } from './notification-scheduler'
 
 // Configure logging
@@ -346,7 +346,7 @@ const setupIPC = () => {
       const result = await wechat.completeWeChatLogin(textCode, wechatLoginAbortController.signal)
       if (result.success) {
         setWeChatBound(true, result.userId)
-        // Note: WeChat push is now handled by notification scheduler automatically
+        startWeChatPoll() // 启动消息轮询
         return { success: true, userId: result.userId }
       } else {
         return { success: false, error: result.error, expired: result.expired }
@@ -376,7 +376,7 @@ const setupIPC = () => {
   ipcMain.handle('wechat-unbind', () => {
     wechat.clearCredentials()
     setWeChatBound(false)
-    // Note: Notification scheduler automatically handles disabled channels
+    stopWeChatPoll()
     return { success: true }
   })
   ipcMain.handle('wechat-test-send', async () => {
@@ -421,6 +421,9 @@ app.whenReady().then(async () => {
     
     // Initialize notification system
     initNotificationSystem()
+    
+    // Start WeChat message poll
+    startWeChatPoll()
     
     // Create and start scheduler
     notificationScheduler = createScheduler()

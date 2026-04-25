@@ -41,48 +41,33 @@ export interface ChannelInfo {
  * All notification channels must implement this interface.
  */
 export interface INotificationChannel {
-  /** Unique channel identifier */
   readonly channelId: string
-  
-  /** Human-readable channel name */
   readonly channelName: string
-  
-  /** Check if channel is available and configured */
   isAvailable(): boolean
-  
-  /** Send notification to all contacts */
   sendNotification(title: string, contacts: Contact[]): Promise<NotificationResult>
-  
-  /** Get channel metadata */
   getChannelInfo(): ChannelInfo
 }
 
 /**
  * Base class for notification channels
- * 
- * Provides common functionality for all channels.
  */
 export abstract class BaseNotificationChannel implements INotificationChannel {
   abstract readonly channelId: string
   abstract readonly channelName: string
   
-  protected enabled: boolean = true
-  protected lastError?: string
-  
   abstract isAvailable(): boolean
-  
   abstract sendNotification(title: string, contacts: Contact[]): Promise<NotificationResult>
   
   getChannelInfo(): ChannelInfo {
     return {
       id: this.channelId,
       name: this.channelName,
-      enabled: this.enabled,
-      description: this.isAvailable() ? '可用' : this.lastError || '不可用'
+      enabled: this.isAvailable(),
+      description: this.isAvailable() ? '可用' : '不可用'
     }
   }
   
-  /** Format birthday message from contacts */
+  /** Format birthday message */
   protected formatBirthdayMessage(contacts: Contact[], title?: string): string {
     const today = new Date()
     const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`
@@ -107,84 +92,48 @@ export abstract class BaseNotificationChannel implements INotificationChannel {
     message += `\n祝他们生日快乐！🎉`
     return message
   }
-  
-  /** Update last notified date for contacts */
-  protected async updateLastNotifiedDate(
-    contacts: Contact[], 
-    updateFn: (id: number, date: string) => Promise<void>,
-    date: string
-  ): Promise<void> {
-    for (const contact of contacts) {
-      if (contact.id) {
-        await updateFn(contact.id, date)
-      }
-    }
-    log.info(`[Notification] Updated lastNotifiedDate for ${contacts.length} contacts`)
-  }
 }
 
 /**
  * Notification Channel Registry
- * 
- * Manages all available notification channels.
- * Allows dynamic registration of new channels.
  */
 export class NotificationChannelRegistry {
   private channels: Map<string, INotificationChannel> = new Map()
   
-  /** Register a new channel */
   register(channel: INotificationChannel): void {
     this.channels.set(channel.channelId, channel)
-    log.info(`[Notification] Registered channel: ${channel.channelId}`)
+    log.info(`[Notification] Registered: ${channel.channelId}`)
   }
   
-  /** Unregister a channel */
   unregister(channelId: string): boolean {
-    const result = this.channels.delete(channelId)
-    if (result) {
-      log.info(`[Notification] Unregistered channel: ${channelId}`)
-    }
-    return result
+    return this.channels.delete(channelId)
   }
   
-  /** Get a channel by ID */
   get(channelId: string): INotificationChannel | undefined {
     return this.channels.get(channelId)
   }
   
-  /** Get all registered channels */
   getAll(): INotificationChannel[] {
     return Array.from(this.channels.values())
   }
   
-  /** Get all enabled channels */
   getEnabled(): INotificationChannel[] {
     return this.getAll().filter(c => c.isAvailable())
   }
   
-  /** Send notification through all enabled channels */
-  async notifyAll(
-    title: string, 
-    contacts: Contact[], 
-    updateFn: (id: number, date: string) => Promise<void>,
-    date: string
-  ): Promise<NotificationResult[]> {
+  /** Send to channels - 通知功能，不包含更新标记 */
+  async notifyAll(title: string, contacts: Contact[]): Promise<NotificationResult[]> {
     const results: NotificationResult[] = []
     const enabledChannels = this.getEnabled()
     
-    log.info(`[Notification] Sending to ${enabledChannels.length} channel(s): ${enabledChannels.map(c => c.channelId).join(', ')}`)
+    log.info(`[Notification] Sending to ${enabledChannels.length} channel(s)`)
     
     for (const channel of enabledChannels) {
       try {
         const result = await channel.sendNotification(title, contacts)
         results.push(result)
-        
-        // Update last notified date on success
-        if (result.success) {
-          await this.updateLastNotifiedDate(contacts, updateFn, date)
-        }
       } catch (error) {
-        log.error(`[Notification] Channel ${channel.channelId} failed:`, error)
+        log.error(`[Notification] ${channel.channelId} failed:`, error)
         results.push({
           success: false,
           error: (error as Error).message,
@@ -197,20 +146,19 @@ export class NotificationChannelRegistry {
   }
 }
 
-// Default registry instance
 export const notificationRegistry = new NotificationChannelRegistry()
 
 // =========================================
-// Concrete Channel Implementations
+// Channel Implementations
 // =========================================
 
 import { Notification } from 'electron'
 import * as wechat from './wechat'
+import { getSettings } from './settings'
+import { getTodayBirthdays } from './database'
 
 /**
- * Windows Toast Notification Channel
- * 
- * Uses Electron's built-in Notification API.
+ * Windows Toast Channel - 仅通知
  */
 export class WindowsNotificationChannel extends BaseNotificationChannel {
   readonly channelId = 'windows-toast'
@@ -229,49 +177,25 @@ export class WindowsNotificationChannel extends BaseNotificationChannel {
   
   async sendNotification(title: string, contacts: Contact[]): Promise<NotificationResult> {
     if (!this.isAvailable()) {
-      return {
-        success: false,
-        error: 'Windows 通知不可用',
-        channel: this.channelId
-      }
+      return { success: false, error: '不可用', channel: this.channelId }
     }
     
     const names = contacts.map(c => c.name).join('、')
     
     try {
-      const notification = new Notification({
-        title,
-        body: names
-      })
-      
-      notification.on('click', () => {
-        this.onClick?.('today')
-      })
-      
+      const notification = new Notification({ title, body: names })
+      notification.on('click', () => this.onClick?.('today'))
       notification.show()
-      
-      log.info(`[${this.channelName}] Notification shown for: ${names}`)
-      
-      return {
-        success: true,
-        channel: this.channelId
-      }
+      log.info(`[Windows] Shown: ${names}`)
+      return { success: true, channel: this.channelId }
     } catch (error) {
-      const errMsg = (error as Error).message
-      log.error(`[${this.channelName}] Failed:`, error)
-      return {
-        success: false,
-        error: errMsg,
-        channel: this.channelId
-      }
+      return { success: false, error: (error as Error).message, channel: this.channelId }
     }
   }
 }
 
 /**
- * WeChat Notification Channel
- * 
- * Uses iLink Bot API for sending messages.
+ * WeChat Channel - 仅通知，不负责保活和消息处理
  */
 export class WeChatNotificationChannel extends BaseNotificationChannel {
   readonly channelId = 'wechat'
@@ -284,45 +208,65 @@ export class WeChatNotificationChannel extends BaseNotificationChannel {
   
   async sendNotification(title: string, contacts: Contact[]): Promise<NotificationResult> {
     if (!this.isAvailable()) {
-      return {
-        success: false,
-        error: '微信未绑定或未登录',
-        channel: this.channelId
-      }
+      return { success: false, error: '未绑定', channel: this.channelId }
     }
     
     const creds = wechat.getCredentials()
     if (!creds?.userId) {
-      return {
-        success: false,
-        error: '无法获取微信凭证',
-        channel: this.channelId
-      }
+      return { success: false, error: '无凭证', channel: this.channelId }
     }
     
-    // Format message using base class method
     const message = this.formatBirthdayMessage(contacts, title)
     
     try {
       await wechat.sendTextMessage(creds.userId, message)
-      
-      log.info(`[${this.channelName}] Message sent to ${creds.userId}`)
-      
-      return {
-        success: true,
-        channel: this.channelId
-      }
+      log.info(`[WeChat] Sent to ${creds.userId}`)
+      return { success: true, channel: this.channelId }
     } catch (error) {
-      const errMsg = (error as Error).message
-      log.error(`[${this.channelName}] Failed:`, error)
-      return {
-        success: false,
-        error: errMsg,
-        channel: this.channelId
-      }
+      return { success: false, error: (error as Error).message, channel: this.channelId }
     }
   }
 }
 
-// Settings import (inline to avoid circular dependency)
-import { getSettings } from './settings'
+// =========================================
+// WeChat 消息处理和保活 - 在 main.ts 中独立管理
+// =========================================
+
+import { app } from 'electron'
+
+let wechatPollTimer: NodeJS.Timeout | null = null
+
+/** 启动 WeChat 消息轮询 */
+export function startWeChatPoll(): void {
+  stopWeChatPoll()
+  
+  const settings = getSettings()
+  if (!settings.wechatBound || !wechat.isLoggedIn()) {
+    return
+  }
+  
+  log.info('[WeChat] Starting poll...')
+  
+  // 每10秒轮询一次
+  const poll = async () => {
+    if (!wechat.isLoggedIn()) {
+      return
+    }
+    try {
+      await wechat.handleIncomingMessages(getTodayBirthdays)
+    } catch (error) {
+      log.error('[WeChat] Poll error:', error)
+    }
+  }
+  
+  poll() // 立即执行一次
+  wechatPollTimer = setInterval(poll, 10000)
+}
+
+/** 停止 WeChat 轮询 */
+export function stopWeChatPoll(): void {
+  if (wechatPollTimer) {
+    clearInterval(wechatPollTimer)
+    wechatPollTimer = null
+  }
+}
