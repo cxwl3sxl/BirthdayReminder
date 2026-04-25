@@ -5,6 +5,8 @@ import { initDatabase, getContacts, addContact, updateContact, deleteContact, ge
 import { importExcel, exportExcel } from './excel'
 import { getSettings, setAutoStart, setReminderTime, setWeChatBound } from './settings'
 import * as wechat from './wechat'
+import { Contact, notificationRegistry, WindowsNotificationChannel, WeChatNotificationChannel } from './notification-channel'
+import { NotificationScheduler } from './notification-scheduler'
 
 // Configure logging
 log.transports.file.level = 'info'
@@ -15,8 +17,7 @@ log.info('Application starting...')
 let mainWindow: BrowserWindow | null = null
 let listWindow: BrowserWindow | null = null
 let tray: Tray | null = null
-let reminderTimer: NodeJS.Timeout | null = null
-let wechatPushTimer: NodeJS.Timeout | null = null
+let notificationScheduler: NotificationScheduler | null = null
 let wechatLoginAbortController: AbortController | null = null
 
 // Environment
@@ -158,7 +159,7 @@ const createTray = () => {
             for (const contact of contacts) {
               await addContact(contact)
             }
-            showNotification('生日提醒', `成功导入 ${contacts.length} 条记录`)
+            showSimpleNotification('生日提醒', `成功导入 ${contacts.length} 条记录`)
             mainWindow?.webContents.send('contacts-updated')
           }
         }
@@ -170,7 +171,7 @@ const createTray = () => {
         const result = await dialog.showSaveDialog({ defaultPath: 'birthdays.xlsx', filters: [{ name: 'Excel', extensions: ['xlsx'] }] })
         if (!result.canceled && result.filePath) {
           await exportExcel(result.filePath)
-          showNotification('导出成功', result.filePath)
+          showSimpleNotification('导出成功', result.filePath)
         }
       }
     },
@@ -225,218 +226,51 @@ const createTray = () => {
   log.info('System tray created')
 }
 
-// Show notification
-const showNotification = (title: string, body?: string, type: 'today' | 'upcoming' = 'today') => {
+// =========================================
+// New Notification System
+// =========================================
+
+/** Initialize notification channels and registry */
+const initNotificationSystem = (): void => {
+  // Register Windows notification channel
+  const windowsChannel = new WindowsNotificationChannel((type) => {
+    createListWindow(type)
+  })
+  notificationRegistry.register(windowsChannel)
+  
+  // Register WeChat notification channel
+  const wechatChannel = new WeChatNotificationChannel()
+  notificationRegistry.register(wechatChannel)
+  
+  log.info('[Notification] System initialized with channels:', notificationRegistry.getAll().map(c => c.channelId).join(', '))
+}
+
+/** Create and start the notification scheduler */
+const createScheduler = (): NotificationScheduler => {
+  return new NotificationScheduler(
+    getTodayBirthdays,
+    updateLastNotifiedDate
+  )
+}
+
+/** Show simple notification (for tray menu feedback) */
+const showSimpleNotification = (title: string, body: string): void => {
   if (Notification.isSupported()) {
-    const notification = new Notification({ title, body: body || '' })
+    const notification = new Notification({ title, body })
     notification.show()
-    notification.on('click', () => {
-      createListWindow(type)
-    })
   }
 }
 
-// Show notification for today birthdays
-const showTodayBirthdaysNotification = async () => {
-  const todayBirthdays = await getTodayBirthdays()
-  const today = new Date().toISOString().split('T')[0]
-  
-  log.info(`[Birthday Check] Found ${todayBirthdays.length} birthday(s) today: ${todayBirthdays.map(c => c.name).join(', ')}`)
-  
-  // 过滤掉今天已经通知过的联系人
-  const toNotify = todayBirthdays.filter(c => c.lastNotifiedDate !== today)
-  
-  log.info(`[Birthday Check] ${toNotify.length} to notify (excluding already notified today), lastNotifiedDate: ${todayBirthdays.map(c => `${c.name}:${c.lastNotifiedDate}`).join(', ')}`)
-  
-  if (toNotify.length > 0) {
-    const names = toNotify.map(c => c.name).join('、')
-    log.info(`[Birthday Check] Showing notification for: ${names}`)
-    showNotification('生日提醒', names)
-    
-    // 更新最后通知时间
-    for (const contact of toNotify) {
-      if (contact.id) {
-        await updateLastNotifiedDate(contact.id, today)
-      }
-    }
-    log.info(`[Birthday Check] Updated lastNotifiedDate to ${today} for ${toNotify.length} contacts`)
-  } else {
-    log.info('[Birthday Check] No birthdays to notify today')
-  }
-}
+// =========================================
+// Old Functions Removed (migrated to notification system)
+// =========================================
 
-// Check and show today's birthday notification
-const checkTodayBirthdays = async () => {
-  const todayBirthdays = await getTodayBirthdays()
-  const today = new Date().toISOString().split('T')[0]
-  
-  log.info(`[Scheduled Check] Found ${todayBirthdays.length} birthday(s) today`)
-  
-  // 过滤掉今天已经通知过的联系人
-  const toNotify = todayBirthdays.filter(c => c.lastNotifiedDate !== today)
-  
-  if (toNotify.length > 0) {
-    const names = toNotify.map(c => c.name).join('、')
-    log.info(`[Scheduled Check] Showing notification for: ${names}`)
-    showNotification('生日提醒', names)
-    
-    // 更新最后通知时间
-    for (const contact of toNotify) {
-      if (contact.id) {
-        await updateLastNotifiedDate(contact.id, today)
-      }
-    }
-    log.info(`[Scheduled Check] Updated lastNotifiedDate to ${today}`)
-  } else {
-    log.info('[Scheduled Check] No birthdays to notify')
-  }
-}
-
-// Start reminder check with configurable time
-const startReminder = () => {
-  log.info('Starting birthday reminder check...')
-
-  const checkAndSchedule = () => {
-    const settings = getSettings()
-    const [hours, minutes] = settings.reminderTime.split(':').map(Number)
-    const now = new Date()
-    const targetTime = new Date(now)
-    targetTime.setHours(hours, minutes, 0, 0)
-
-    // If target time is in the past, schedule for tomorrow
-    if (targetTime <= now) {
-      targetTime.setDate(targetTime.getDate() + 1)
-    }
-
-    const delay = targetTime.getTime() - now.getTime()
-
-    log.info(`Next birthday check scheduled in ${Math.round(delay / 1000 / 60)} minutes`)
-
-    if (reminderTimer) clearTimeout(reminderTimer)
-    reminderTimer = setTimeout(async () => {
-      await checkTodayBirthdays()
-      checkAndSchedule() // Reschedule for next day
-    }, delay)
-  }
-
-  // Initial check
-  checkAndSchedule()
-}
-
-// Generate birthday message for WeChat push
-const generateBirthdayMessage = (contacts: Contact[]): string => {
-  const today = new Date()
-  const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`
-
-  let message = `🎂 生日提醒\n\n今天是 ${dateStr}，以下朋友过生日：\n\n`
-
-  for (const contact of contacts) {
-    message += `• ${contact.name}`
-    if (contact.phoneNumber) {
-      message += ` (${contact.phoneNumber})`
-    }
-    if (contact.remarks) {
-      message += `\n  备注: ${contact.remarks}`
-    }
-    message += '\n'
-  }
-
-  message += `\n祝他们生日快乐！🎉`
-  return message
-}
-
-// Start WeChat push timer
-const startWeChatPush = () => {
-  if (wechatPushTimer) {
-    clearInterval(wechatPushTimer)
-  }
-
-  log.info('Starting WeChat birthday push...')
-
-  // Check every 5 seconds for faster message handling
-  const messagePollInterval = 5 * 1000
-
-  // Handle messages with immediate repetition for faster response
-  const pollMessages = async () => {
-    const settings = getSettings()
-    if (!settings.wechatBound || !wechat.isLoggedIn()) {
-      return
-    }
-
-    // Handle incoming messages - respond immediately after processing
-    try {
-      await wechat.handleIncomingMessages(getTodayBirthdays)
-    } catch (err) {
-      log.error('WeChat message handling error:', err)
-    }
-
-    // Check birthday push time
-    const now = new Date()
-    const today = now.toISOString().split('T')[0]
-    const [targetHour, targetMinute] = settings.reminderTime.split(':').map(Number)
-
-    if (now.getHours() === targetHour && now.getMinutes() === targetMinute) {
-      const allContacts = await getTodayBirthdays()
-      // 过滤今天未通知的联系人
-      const contacts = allContacts.filter(c => c.lastNotifiedDate !== today)
-      
-      if (contacts.length > 0) {
-        const creds = wechat.getCredentials()
-        if (creds) {
-          const message = generateBirthdayMessage(contacts)
-          try {
-            await wechat.sendTextMessage(creds.userId, message)
-            // 更新最后通知时间
-            for (const contact of contacts) {
-              if (contact.id) {
-                await updateLastNotifiedDate(contact.id, today)
-              }
-            }
-            log.info('WeChat birthday push sent successfully')
-          } catch (err) {
-            log.error('WeChat push failed:', err)
-          }
-        }
-      }
-    }
-  }
-
-  wechatPushTimer = setInterval(pollMessages, messagePollInterval)
-
-  // Also do an immediate check
-  const settings = getSettings()
-  if (settings.wechatBound && wechat.isLoggedIn()) {
-    const now = new Date()
-    const today = now.toISOString().split('T')[0]
-    const [targetHour, targetMinute] = settings.reminderTime.split(':').map(Number)
-    if (now.getHours() === targetHour && now.getMinutes() === targetMinute) {
-      // Run immediately if it's the configured hour
-      setTimeout(async () => {
-        const allContacts = await getTodayBirthdays()
-        // 过滤今天未通知的联系人
-        const contacts = allContacts.filter(c => c.lastNotifiedDate !== today)
-        
-        if (contacts.length > 0) {
-          const creds = wechat.getCredentials()
-          if (creds) {
-            const message = generateBirthdayMessage(contacts)
-            try {
-              await wechat.sendTextMessage(creds.userId, message)
-              // 更新最后通知时间
-              for (const contact of contacts) {
-                if (contact.id) {
-                  await updateLastNotifiedDate(contact.id, today)
-                }
-              }
-            } catch (err) {
-              log.error('WeChat push failed:', err)
-            }
-          }
-        }
-      }, 1000)
-    }
-  }
-}
+// OLD: showNotification - use WindowsNotificationChannel instead
+// OLD: showTodayBirthdaysNotification - use NotificationScheduler instead
+// OLD: checkTodayBirthdays - use NotificationScheduler instead
+// OLD: startReminder - use NotificationScheduler instead
+// OLD: generateBirthdayMessage - use formatBirthdayMessage in channel instead
+// OLD: startWeChatPush - replaced by WeChatNotificationChannel
 
 // IPC Handlers
 const setupIPC = () => {
@@ -492,7 +326,7 @@ const setupIPC = () => {
   ipcMain.handle('set-auto-start', (_, enabled: boolean) => setAutoStart(enabled))
   ipcMain.handle('set-reminder-time', (_, time: string) => {
     setReminderTime(time)
-    startReminder() // Restart with new time
+    notificationScheduler?.restart() // Restart with new time
   })
   // WeChat handlers
   ipcMain.handle('wechat-init-login', async () => {
@@ -512,7 +346,7 @@ const setupIPC = () => {
       const result = await wechat.completeWeChatLogin(textCode, wechatLoginAbortController.signal)
       if (result.success) {
         setWeChatBound(true, result.userId)
-        startWeChatPush() // Start WeChat push timer
+        // Note: WeChat push is now handled by notification scheduler automatically
         return { success: true, userId: result.userId }
       } else {
         return { success: false, error: result.error, expired: result.expired }
@@ -542,27 +376,33 @@ const setupIPC = () => {
   ipcMain.handle('wechat-unbind', () => {
     wechat.clearCredentials()
     setWeChatBound(false)
-    if (wechatPushTimer) {
-      clearInterval(wechatPushTimer)
-      wechatPushTimer = null
-    }
+    // Note: Notification scheduler automatically handles disabled channels
     return { success: true }
   })
   ipcMain.handle('wechat-test-send', async () => {
+    // Use notification channel directly for testing
+    const wechatChannel = notificationRegistry.get('wechat')
+    if (!wechatChannel) {
+      return { success: false, message: '微信通知渠道未注册' }
+    }
+    
+    const isAvailable = wechatChannel.isAvailable()
+    if (!isAvailable) {
+      return { success: false, message: '微信未绑定或未登录' }
+    }
+    
     try {
       const contacts = await getTodayBirthdays()
       if (contacts.length === 0) {
         return { success: false, message: '今日无生日联系人' }
       }
-
-      const creds = wechat.getCredentials()
-      if (!creds) {
-        return { success: false, message: '未绑定微信' }
+      
+      const result = await wechatChannel.sendNotification('测试消息', contacts)
+      if (result.success) {
+        return { success: true, message: '测试消息发送成功' }
+      } else {
+        return { success: false, error: result.error }
       }
-
-      const message = generateBirthdayMessage(contacts)
-      await wechat.sendTextMessage(creds.userId, message)
-      return { success: true, message: '测试消息发送成功' }
     } catch (error) {
       log.error('WeChat test send failed:', error)
       return { success: false, error: (error as Error).message }
@@ -578,19 +418,18 @@ app.whenReady().then(async () => {
   try {
     await initDatabase()
     wechat.initWeChat() // Initialize WeChat and load credentials
+    
+    // Initialize notification system
+    initNotificationSystem()
+    
+    // Create and start scheduler
+    notificationScheduler = createScheduler()
+    notificationScheduler.start()
+    
     setupIPC()
     createWindow()
     createTray()
-    // Check and show today's birthday notification on startup
-    await showTodayBirthdaysNotification()
-    startReminder()
-
-    // Start WeChat push if already bound
-    const settings = getSettings()
-    if (settings.wechatBound && wechat.isLoggedIn()) {
-      startWeChatPush()
-    }
-
+    
     log.info('Application started successfully')
   } catch (error) {
     log.error('Error during startup:', error)
@@ -609,7 +448,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true
-  if (reminderTimer) clearTimeout(reminderTimer)
+  notificationScheduler?.stop()
 })
 
 declare module 'electron' {
