@@ -51,6 +51,8 @@ export const getContacts = async (): Promise<Contact[]> => {
   const today = new Date()
   const currentYear = today.getFullYear()
   
+  log.info(`[Database] Total contacts in DB: ${rows.length}`)
+  
   return rows.map(row => {
     const birthday = new Date(row.birthday)
     const month = birthday.getMonth()
@@ -59,6 +61,11 @@ export const getContacts = async (): Promise<Contact[]> => {
     if (thisYearBirthday < today) thisYearBirthday = new Date(currentYear + 1, month, day)
     const diffDays = Math.ceil((thisYearBirthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
     const isBirthdayToday = month === today.getMonth() && day === today.getDate()
+    
+    if (isBirthdayToday) {
+      log.info(`[Database] Today is birthday for: ${row.name}, birthday=${row.birthday}, parsed as month=${month}, day=${day}`)
+    }
+    
     return {
       ...row,
       formattedBirthday: `${month + 1}月${day}日`,

@@ -98,13 +98,15 @@ export const importExcel = async (filePath: string): Promise<Contact[] | null> =
         return
       }
       
+      log.info(`[Excel Import] Row ${rowNumber}: name="${name}", parsed birthday="${birthday}"`)
+      
       contacts.push({
         name: name.trim(),
         phoneNumber: phoneNumber?.trim() || undefined,
         birthday,
         remarks: remarks?.trim() || undefined
       })
-      log.info(`Added: ${name}, ${birthday}`)
+      log.info(`[Excel Import] Added contact: ${name}, birthday=${birthday}`)
     })
     
     log.info(`Import complete: ${contacts.length} contacts`)

@@ -241,11 +241,16 @@ const showTodayBirthdaysNotification = async () => {
   const todayBirthdays = await getTodayBirthdays()
   const today = new Date().toISOString().split('T')[0]
   
+  log.info(`[Birthday Check] Found ${todayBirthdays.length} birthday(s) today: ${todayBirthdays.map(c => c.name).join(', ')}`)
+  
   // 过滤掉今天已经通知过的联系人
   const toNotify = todayBirthdays.filter(c => c.lastNotifiedDate !== today)
   
+  log.info(`[Birthday Check] ${toNotify.length} to notify (excluding already notified today), lastNotifiedDate: ${todayBirthdays.map(c => `${c.name}:${c.lastNotifiedDate}`).join(', ')}`)
+  
   if (toNotify.length > 0) {
     const names = toNotify.map(c => c.name).join('、')
+    log.info(`[Birthday Check] Showing notification for: ${names}`)
     showNotification('生日提醒', names)
     
     // 更新最后通知时间
@@ -254,6 +259,9 @@ const showTodayBirthdaysNotification = async () => {
         await updateLastNotifiedDate(contact.id, today)
       }
     }
+    log.info(`[Birthday Check] Updated lastNotifiedDate to ${today} for ${toNotify.length} contacts`)
+  } else {
+    log.info('[Birthday Check] No birthdays to notify today')
   }
 }
 
@@ -262,11 +270,14 @@ const checkTodayBirthdays = async () => {
   const todayBirthdays = await getTodayBirthdays()
   const today = new Date().toISOString().split('T')[0]
   
+  log.info(`[Scheduled Check] Found ${todayBirthdays.length} birthday(s) today`)
+  
   // 过滤掉今天已经通知过的联系人
   const toNotify = todayBirthdays.filter(c => c.lastNotifiedDate !== today)
   
   if (toNotify.length > 0) {
     const names = toNotify.map(c => c.name).join('、')
+    log.info(`[Scheduled Check] Showing notification for: ${names}`)
     showNotification('生日提醒', names)
     
     // 更新最后通知时间
@@ -275,6 +286,9 @@ const checkTodayBirthdays = async () => {
         await updateLastNotifiedDate(contact.id, today)
       }
     }
+    log.info(`[Scheduled Check] Updated lastNotifiedDate to ${today}`)
+  } else {
+    log.info('[Scheduled Check] No birthdays to notify')
   }
 }
 
