@@ -15,6 +15,7 @@ export interface Contact {
   daysUntil?: number
   countdownText?: string
   isBirthdayToday?: boolean
+  // lastNotifiedDate format: "2025-04-25"
   lastNotifiedDate?: string
 }
 
@@ -113,7 +114,7 @@ export const deleteContact = async (id: number): Promise<void> => {
   db.prepare('DELETE FROM contacts WHERE id = ?').run(id)
 }
 
-// 更新联系人的最后通知时间
+// 更新联系人的最后通知日期
 export const updateLastNotifiedDate = async (id: number, date: string): Promise<void> => {
   if (!db) throw new Error('Database not initialized')
   db.prepare('UPDATE contacts SET lastNotifiedDate = ? WHERE id = ?').run(date, id)

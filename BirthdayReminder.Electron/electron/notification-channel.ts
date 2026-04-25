@@ -109,14 +109,17 @@ export abstract class BaseNotificationChannel implements INotificationChannel {
   }
   
   /** Update last notified date for contacts */
-  protected async updateLastNotifiedDate(contacts: Contact[], updateFn: (id: number) => Promise<void>): Promise<void> {
-    const today = new Date().toISOString().split('T')[0]
+  protected async updateLastNotifiedDate(
+    contacts: Contact[], 
+    updateFn: (id: number, date: string) => Promise<void>,
+    date: string
+  ): Promise<void> {
     for (const contact of contacts) {
       if (contact.id) {
-        await updateFn(contact.id)
+        await updateFn(contact.id, date)
       }
     }
-    log.info(`[Notification] Updated lastNotifiedDate to ${today} for ${contacts.length} contacts`)
+    log.info(`[Notification] Updated lastNotifiedDate for ${contacts.length} contacts`)
   }
 }
 
@@ -160,7 +163,12 @@ export class NotificationChannelRegistry {
   }
   
   /** Send notification through all enabled channels */
-  async notifyAll(title: string, contacts: Contact[], updateFn: (id: number) => Promise<void>): Promise<NotificationResult[]> {
+  async notifyAll(
+    title: string, 
+    contacts: Contact[], 
+    updateFn: (id: number, date: string) => Promise<void>,
+    date: string
+  ): Promise<NotificationResult[]> {
     const results: NotificationResult[] = []
     const enabledChannels = this.getEnabled()
     
@@ -173,7 +181,7 @@ export class NotificationChannelRegistry {
         
         // Update last notified date on success
         if (result.success) {
-          await this.updateLastNotifiedDate(contacts, updateFn)
+          await this.updateLastNotifiedDate(contacts, updateFn, date)
         }
       } catch (error) {
         log.error(`[Notification] Channel ${channel.channelId} failed:`, error)
@@ -186,15 +194,6 @@ export class NotificationChannelRegistry {
     }
     
     return results
-  }
-  
-  private async updateLastNotifiedDate(contacts: Contact[], updateFn: (id: number) => Promise<void>): Promise<void> {
-    const today = new Date().toISOString().split('T')[0]
-    for (const contact of contacts) {
-      if (contact.id) {
-        await updateFn(contact.id)
-      }
-    }
   }
 }
 
