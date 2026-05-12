@@ -3,9 +3,9 @@ import path from 'path'
 import log from 'electron-log'
 import { initDatabase, getContacts, addContact, updateContact, deleteContact, getTodayBirthdays, getContactsInDays, updateLastNotifiedDate } from './database'
 import { importExcel, exportExcel } from './excel'
-import { getSettings, setAutoStart, setReminderTime, setWeChatBound } from './settings'
+import { getSettings, setAutoStart, setReminderTime, setWeChatBound, setEmailEnabled, setEmailConfig, EmailConfig } from './settings'
 import * as wechat from './wechat'
-import { Contact, notificationRegistry, WindowsNotificationChannel, WeChatNotificationChannel, startWeChatPoll, stopWeChatPoll } from './notification-channel'
+import { Contact, notificationRegistry, WindowsNotificationChannel, WeChatNotificationChannel, EmailNotificationChannel, startWeChatPoll, stopWeChatPoll } from './notification-channel'
 import { NotificationScheduler } from './notification-scheduler'
 
 // Configure logging
@@ -242,6 +242,10 @@ const initNotificationSystem = (): void => {
   const wechatChannel = new WeChatNotificationChannel()
   notificationRegistry.register(wechatChannel)
   
+  // Register Email notification channel
+  const emailChannel = new EmailNotificationChannel()
+  notificationRegistry.register(emailChannel)
+  
   log.info('[Notification] System initialized with channels:', notificationRegistry.getAll().map(c => c.channelId).join(', '))
 }
 
@@ -405,6 +409,56 @@ const setupIPC = () => {
       }
     } catch (error) {
       log.error('WeChat test send failed:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
+  
+  // Email IPC handlers
+  ipcMain.handle('email-set-enabled', async (_, enabled: boolean) => {
+    try {
+      setEmailEnabled(enabled)
+      return { success: true }
+    } catch (error) {
+      log.error('Email set enabled failed:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
+  
+  ipcMain.handle('email-set-config', async (_, config: EmailConfig) => {
+    try {
+      setEmailConfig(config)
+      return { success: true }
+    } catch (error) {
+      log.error('Email set config failed:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
+  
+  ipcMain.handle('email-test-send', async () => {
+    const emailChannel = notificationRegistry.get('email')
+    if (!emailChannel) {
+      return { success: false, error: '邮件通知渠道未注册' }
+    }
+    
+    const isAvailable = emailChannel.isAvailable()
+    if (!isAvailable) {
+      return { success: false, error: '邮件未配置或未启用' }
+    }
+    
+    try {
+      const contacts = await getTodayBirthdays()
+      const testContacts = contacts.length > 0 
+        ? contacts.slice(0, 3) 
+        : [{ name: '测试用户', birthday: '2000-01-01', phoneNumber: '13800138000' }]
+      
+      const result = await emailChannel.sendNotification('测试邮件', testContacts)
+      if (result.success) {
+        return { success: true, message: '测试邮件发送成功' }
+      } else {
+        return { success: false, error: result.error }
+      }
+    } catch (error) {
+      log.error('Email test send failed:', error)
       return { success: false, error: (error as Error).message }
     }
   })

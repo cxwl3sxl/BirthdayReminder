@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Space, Modal, Form, Input, DatePicker, message, Dropdown, Popconfirm, Switch, TimePicker, Spin, Divider } from 'antd'
+import { Table, Button, Space, Modal, Form, Input, DatePicker, message, Dropdown, Popconfirm, Switch, TimePicker, Spin, Divider, Row, Col, InputNumber } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import pinyin from 'pinyin'
@@ -13,7 +13,8 @@ import {
   WechatOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ScanOutlined
+  ScanOutlined,
+  MailOutlined
 } from '@ant-design/icons'
 
 // Windows 10 Style Icons (SVG)
@@ -54,6 +55,17 @@ interface Contact {
   isBirthdayToday?: boolean
 }
 
+// Email configuration interface
+interface EmailConfig {
+  smtpHost: string
+  smtpPort: number
+  useSsl: boolean
+  senderEmail: string
+  senderName: string
+  senderPassword: string
+  recipientEmails: string
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -78,7 +90,7 @@ declare global {
       onLoadBirthdayList: (callback: (type: string) => void) => () => void
       onContactsUpdated: (callback: () => void) => () => void
       onOpenSettings: (callback: () => void) => () => void
-      getSettings: () => Promise<{ autoStart: boolean; reminderTime: string; wechatBound: boolean; wechatUserId?: string }>
+      getSettings: () => Promise<{ autoStart: boolean; reminderTime: string; wechatBound: boolean; wechatUserId?: string; emailEnabled: boolean; emailConfig?: EmailConfig }>
       setAutoStart: (enabled: boolean) => Promise<void>
       setReminderTime: (time: string) => Promise<void>
       // WeChat
@@ -87,6 +99,10 @@ declare global {
       wechatGetStatus: () => Promise<{ bound: boolean; userId?: string }>
       wechatUnbind: () => Promise<{ success: boolean }>
       wechatTestSend: () => Promise<{ success: boolean; message?: string; error?: string }>
+      // Email
+      emailSetEnabled: (enabled: boolean) => Promise<{ success: boolean }>
+      emailSetConfig: (config: EmailConfig) => Promise<{ success: boolean }>
+      emailTestSend: () => Promise<{ success: boolean; message?: string; error?: string }>
     }
   }
 }
@@ -269,7 +285,7 @@ function App() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [isMaximized, setIsMaximized] = useState(false)
   const [settingsVisible, setSettingsVisible] = useState(false)
-  const [settings, setSettings] = useState({ autoStart: false, reminderTime: '10:00', wechatBound: false })
+  const [settings, setSettings] = useState({ autoStart: false, reminderTime: '10:00', wechatBound: false, emailEnabled: false, emailConfig: undefined as EmailConfig | undefined })
   const [searchText, setSearchText] = useState('')
   const [form] = Form.useForm()
   // WeChat state
@@ -874,6 +890,160 @@ function App() {
               <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
                 每天定时提醒当日生日联系人（同时也是微信推送时间）
               </div>
+            </div>
+            
+            <Divider style={{ margin: '16px 0' }} />
+            
+            {/* Email Section */}
+            <div style={{ marginBottom: 24, padding: '16px', background: 'var(--color-bg-secondary)', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <MailOutlined style={{ fontSize: 20, color: '#1890ff' }} />
+                <span style={{ fontWeight: 600, fontSize: 15 }}>邮件推送</span>
+                <Switch
+                  checked={settings.emailEnabled}
+                  onChange={async (checked) => {
+                    await window.electronAPI.emailSetEnabled(checked)
+                    setSettings({ ...settings, emailEnabled: checked })
+                    message.success(checked ? '邮件推送已启用' : '邮件推送已禁用')
+                  }}
+                  size="small"
+                />
+              </div>
+              
+              {settings.emailEnabled && (
+                <div>
+                  <div style={{ color: '#666', fontSize: 13, marginBottom: 12 }}>
+                    配置邮件服务器信息
+                  </div>
+                  <Form layout="vertical" size="small">
+                    <Row gutter={12}>
+                      <Col span={16}>
+                        <Form.Item label="SMTP 服务器" style={{ marginBottom: 8 }}>
+                          <Input
+                            placeholder="smtp.example.com"
+                            value={settings.emailConfig?.smtpHost || ''}
+                            onChange={(e) => setSettings({
+                              ...settings,
+                              emailConfig: { ...settings.emailConfig!, smtpHost: e.target.value }
+                            })}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col span={8}>
+                        <Form.Item label="端口" style={{ marginBottom: 8 }}>
+                          <InputNumber
+                            placeholder="465"
+                            style={{ width: '100%' }}
+                            value={settings.emailConfig?.smtpPort || 465}
+                            onChange={(val) => setSettings({
+                              ...settings,
+                              emailConfig: { ...settings.emailConfig!, smtpPort: val || 465 }
+                            })}
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.Item label="发送邮箱" style={{ marginBottom: 8 }}>
+                          <Input
+                            placeholder="your@email.com"
+                            value={settings.emailConfig?.senderEmail || ''}
+                            onChange={(e) => setSettings({
+                              ...settings,
+                              emailConfig: { ...settings.emailConfig!, senderEmail: e.target.value }
+                            })}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item label="发件人名称" style={{ marginBottom: 8 }}>
+                          <Input
+                            placeholder="生日提醒"
+                            value={settings.emailConfig?.senderName || ''}
+                            onChange={(e) => setSettings({
+                              ...settings,
+                              emailConfig: { ...settings.emailConfig!, senderName: e.target.value }
+                            })}
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.Item label="邮箱密码" style={{ marginBottom: 8 }}>
+                          <Input.Password
+                            placeholder="SMTP 密码或授权码"
+                            value={settings.emailConfig?.senderPassword || ''}
+                            onChange={(e) => setSettings({
+                              ...settings,
+                              emailConfig: { ...settings.emailConfig!, senderPassword: e.target.value }
+                            })}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item label="使用 SSL" style={{ marginBottom: 8 }}>
+                          <Switch
+                            checked={settings.emailConfig?.useSsl ?? true}
+                            onChange={(checked) => setSettings({
+                              ...settings,
+                              emailConfig: { ...settings.emailConfig!, useSsl: checked }
+                            })}
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Form.Item label="接收邮箱（多个用逗号分隔）" style={{ marginBottom: 8 }}>
+                      <Input
+                        placeholder="a@example.com, b@example.com"
+                        value={settings.emailConfig?.recipientEmails || ''}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          emailConfig: { ...settings.emailConfig!, recipientEmails: e.target.value }
+                        })}
+                      />
+                    </Form.Item>
+                    <Form.Item style={{ marginBottom: 0, marginTop: 12 }}>
+                      <Space>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={async () => {
+                            if (!settings.emailConfig?.smtpHost || !settings.emailConfig?.senderEmail || !settings.emailConfig?.recipientEmails) {
+                              message.error('请填写完整的邮件配置')
+                              return
+                            }
+                            await window.electronAPI.emailSetConfig(settings.emailConfig)
+                            message.success('邮件配置已保存')
+                          }}
+                        >
+                          保存配置
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={async () => {
+                            const result = await window.electronAPI.emailTestSend()
+                            if (result.success) {
+                              message.success(result.message || '测试邮件已发送')
+                            } else {
+                              message.error(result.error || '发送失败')
+                            }
+                          }}
+                        >
+                          测试发送
+                        </Button>
+                      </Space>
+                    </Form.Item>
+                  </Form>
+                </div>
+              )}
+              
+              {!settings.emailEnabled && (
+                <div style={{ color: '#666', fontSize: 13 }}>
+                  开启后，每天定时通过邮件推送生日提醒
+                </div>
+              )}
             </div>
           </div>
         </Modal>

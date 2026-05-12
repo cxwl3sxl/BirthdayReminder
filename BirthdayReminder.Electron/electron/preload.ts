@@ -47,5 +47,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wechatCancelLogin: () => ipcRenderer.invoke('wechat-cancel-login'),
   wechatGetStatus: () => ipcRenderer.invoke('wechat-get-status'),
   wechatUnbind: () => ipcRenderer.invoke('wechat-unbind'),
-  wechatTestSend: () => ipcRenderer.invoke('wechat-test-send')
+  wechatTestSend: () => ipcRenderer.invoke('wechat-test-send'),
+  // Email
+  emailSetEnabled: (enabled: boolean) => ipcRenderer.invoke('email-set-enabled', enabled),
+  emailSetConfig: (config: any) => ipcRenderer.invoke('email-set-config', config),
+  emailTestSend: () => ipcRenderer.invoke('email-test-send')
 })

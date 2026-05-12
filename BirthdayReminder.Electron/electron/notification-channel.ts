@@ -232,6 +232,66 @@ export class WeChatNotificationChannel extends BaseNotificationChannel {
 // WeChat 消息处理和保活 - 在 main.ts 中独立管理
 // =========================================
 
+// Email notification channel
+import nodemailer from 'nodemailer'
+import { getSettings } from './settings'
+
+export class EmailNotificationChannel extends BaseNotificationChannel {
+  readonly channelId = 'email'
+  readonly channelName = '邮件通知'
+  
+  isAvailable(): boolean {
+    const settings = getSettings()
+    return settings.emailEnabled && !!settings.emailConfig
+  }
+  
+  async sendNotification(title: string, contacts: Contact[]): Promise<NotificationResult> {
+    const settings = getSettings()
+    if (!this.isAvailable()) {
+      return { success: false, error: '未配置', channel: this.channelId }
+    }
+    
+    const config = settings.emailConfig!
+    const recipients = config.recipientEmails.split(',').map(e => e.trim()).filter(e => e)
+    
+    if (recipients.length === 0) {
+      return { success: false, error: '无接收人', channel: this.channelId }
+    }
+    
+    const message = this.formatBirthdayMessage(contacts, title)
+    
+    try {
+      const transporter = nodemailer.createTransport({
+        host: config.smtpHost,
+        port: config.smtpPort,
+        secure: config.useSsl,
+        auth: {
+          user: config.senderEmail,
+          pass: config.senderPassword
+        }
+      })
+      
+      const result = await transporter.sendMail({
+        from: `"${config.senderName}" <${config.senderEmail}>`,
+        to: recipients.join(','),
+        subject: title || '🎂 生日提醒',
+        text: message,
+        html: message.replace(/\n/g, '<br>')
+      })
+      
+      log.info(`[Email] Sent to ${recipients.join(',')}, messageId: ${result.messageId}`)
+      return { success: true, channel: this.channelId }
+    } catch (error) {
+      log.error('[Email] Send failed:', error)
+      return { success: false, error: (error as Error).message, channel: this.channelId }
+    }
+  }
+}
+
+// =========================================
+// WeChat 消息处理和保活 - 在 main.ts 中独立管理
+// =========================================
+
 import { app } from 'electron'
 
 let wechatPollTimer: NodeJS.Timeout | null = null
